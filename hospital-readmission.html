@@ -1872,8 +1872,8 @@ set, in terms of model accuracy.</p>
 <h1>Exploratory Data Analysis</h1>
 <div id="data-loading-and-preprocessing" class="section level2">
 <h2>Data loading and preprocessing</h2>
-<div id="loading-the-data-ac" class="section level4">
-<h4>Loading the Data (AC)</h4>
+<div id="loading-the-data-ac" class="section level3">
+<h3>Loading the Data (AC)</h3>
 <pre class="r"><code># Set the directory for the data files
 filepath &lt;- &quot;/Users/adelinecasali/Desktop/hospitals_current_data/&quot; 
 
@@ -1893,24 +1893,8 @@ for(f in 1:length(files)) {
     
 # Assign data to a variable with the above created name
     assign(filename, dat)
-}</code></pre>
-<pre><code>## Warning: One or more parsing issues, call `problems()` on your data frame for details,
-## e.g.:
-##   dat &lt;- vroom(...)
-##   problems(dat)
-## One or more parsing issues, call `problems()` on your data frame for details,
-## e.g.:
-##   dat &lt;- vroom(...)
-##   problems(dat)
-## One or more parsing issues, call `problems()` on your data frame for details,
-## e.g.:
-##   dat &lt;- vroom(...)
-##   problems(dat)
-## One or more parsing issues, call `problems()` on your data frame for details,
-## e.g.:
-##   dat &lt;- vroom(...)
-##   problems(dat)</code></pre>
-<pre class="r"><code># Create a df of file names without &quot;.Hospital.csv&quot;
+}
+# Create a df of file names without &quot;.Hospital.csv&quot;
 files &lt;- gsub(&quot;.Hospital\\.csv&quot;, &quot;&quot;, files) %&gt;% data.frame()
 
 # Set column name of the df to &quot;File Name&quot;
@@ -1992,11 +1976,11 @@ Unplanned_Hospital_Visits
 </tbody>
 </table>
 </div>
-<div id="exploring-and-preprocessing-the-fy_2024_hospital_readmissions_reduction_program-dataset-ac" class="section level4">
-<h4>Exploring and Preprocessing the
-FY_2024_Hospital_Readmissions_Reduction_Program dataset (AC)</h4>
-<div id="viewing-and-checking-for-missing-values" class="section level5">
-<h5>Viewing and checking for missing values</h5>
+<div id="exploring-and-preprocessing-the-fy_2024_hospital_readmissions_reduction_program-dataset-ac" class="section level3">
+<h3>Exploring and Preprocessing the
+FY_2024_Hospital_Readmissions_Reduction_Program dataset (AC)</h3>
+<div id="viewing-and-checking-for-missing-values" class="section level4">
+<h4>Viewing and checking for missing values</h4>
 <pre class="r"><code># Display first 10 rows of FY_2024_Hospital_Readmissions_Reduction_Program 
 head(FY_2024_Hospital_Readmissions_Reduction_Program,10)</code></pre>
 <pre><code>## # A tibble: 10 × 12
@@ -2025,9 +2009,9 @@ print(miss_vals)</code></pre>
 <pre><code>## Footnote 
 ##    12077</code></pre>
 </div>
-<div id="replacing-values-with-na-and-too-few-to-report-values-with-5" class="section level5">
-<h5>Replacing values with NA and “Too Few to Report” values with
-“5”</h5>
+<div id="replacing-values-with-na-and-too-few-to-report-values-with-5" class="section level4">
+<h4>Replacing values with NA and “Too Few to Report” values with
+“5”</h4>
 <pre class="r"><code># Use the function &quot;replace_with_na_all()&quot; to replace aberrant values with NA
 FY_2024_Hospital_Readmissions_Reduction_Program &lt;- replace_with_na_all(FY_2024_Hospital_Readmissions_Reduction_Program, condition = ~ .x == &quot;N/A&quot;)
 
@@ -2048,11 +2032,11 @@ FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions[fives] &lt;
 
 # Check the first 20 rows to see if this was applied correctly
 head(FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions,20)</code></pre>
-<pre><code>##  [1]   4 149  32  68  11  20  NA  14  40  24   8  NA   3  21  15  83  36  75  10
+<pre><code>##  [1]  10 149  32  68  11  20  NA  14  40  24   4  NA   4  21  15  83  36  75   9
 ## [20]  NA</code></pre>
 </div>
-<div id="converting-columns-to-numeric" class="section level5">
-<h5>Converting columns to numeric</h5>
+<div id="converting-columns-to-numeric" class="section level4">
+<h4>Converting columns to numeric</h4>
 <pre class="r"><code># Selecting the columns to convert
 columns_to_convert &lt;- c(&quot;NumberOfDischarges&quot;, &quot;ExcessReadmissionRatio&quot;, &quot;PredictedReadmissionRate&quot;, &quot;ExpectedReadmissionRate&quot;, &quot;NumberOfReadmissions&quot;)
 
@@ -2072,18 +2056,18 @@ str(FY_2024_Hospital_Readmissions_Reduction_Program)</code></pre>
 ##  $ ExcessReadmissionRatio  : num [1:18774] 0.892 1.1 0.933 0.987 0.952 ...
 ##  $ PredictedReadmissionRate: num [1:18774] 3.53 23.13 12.9 17.05 9.81 ...
 ##  $ ExpectedReadmissionRate : num [1:18774] 3.96 21.02 13.83 17.28 10.31 ...
-##  $ NumberOfReadmissions    : num [1:18774] 4 149 32 68 11 20 NA 14 40 24 ...
+##  $ NumberOfReadmissions    : num [1:18774] 10 149 32 68 11 20 NA 14 40 24 ...
 ##  $ StartDate               : chr [1:18774] &quot;07/01/2019&quot; &quot;07/01/2019&quot; &quot;07/01/2019&quot; &quot;07/01/2019&quot; ...
 ##  $ EndDate                 : chr [1:18774] &quot;06/30/2022&quot; &quot;06/30/2022&quot; &quot;06/30/2022&quot; &quot;06/30/2022&quot; ...</code></pre>
 </div>
-<div id="removing-excess-text-from-measure-names" class="section level5">
-<h5>Removing excess text from measure names</h5>
+<div id="removing-excess-text-from-measure-names" class="section level4">
+<h4>Removing excess text from measure names</h4>
 <pre class="r"><code>FY_2024_Hospital_Readmissions_Reduction_Program &lt;-  FY_2024_Hospital_Readmissions_Reduction_Program %&gt;%
   mutate(MeasureName = gsub(&quot;READM-30-&quot;, &quot;&quot;, MeasureName)) %&gt;% 
   mutate(MeasureName = gsub(&quot;-HRRP&quot;, &quot;&quot;, MeasureName)) </code></pre>
 </div>
-<div id="creating-a-dictionary-for-medical-conditions" class="section level5">
-<h5>Creating a dictionary for medical conditions</h5>
+<div id="creating-a-dictionary-for-medical-conditions" class="section level4">
+<h4>Creating a dictionary for medical conditions</h4>
 <pre class="r"><code>dict &lt;- tribble(
   ~Acronym, ~Definition,
   &quot;HIP-KNEE&quot;, &quot;Total Hip/Knee Arthroplasty&quot;,
@@ -2166,8 +2150,8 @@ Pneumonia
 </tbody>
 </table>
 </div>
-<div id="pivoting-the-data-wider" class="section level5">
-<h5>Pivoting the data wider</h5>
+<div id="pivoting-the-data-wider" class="section level4">
+<h4>Pivoting the data wider</h4>
 <pre class="r"><code>readmissionsClean &lt;- FY_2024_Hospital_Readmissions_Reduction_Program %&gt;%
   pivot_wider(
     names_from = MeasureName, 
@@ -2196,16 +2180,16 @@ dim(readmissionsClean)</code></pre>
 ## #   ExcessReadmissionRatio_AMI &lt;dbl&gt;, ExcessReadmissionRatio_PN &lt;dbl&gt;,
 ## #   ExcessReadmissionRatio_CABG &lt;dbl&gt;, ExcessReadmissionRatio_COPD &lt;dbl&gt;, …</code></pre>
 </div>
-<div id="filtering-for-only-hipknee-conditions" class="section level5">
-<h5>Filtering for only hip/knee conditions</h5>
+<div id="filtering-for-only-hipknee-conditions" class="section level4">
+<h4>Filtering for only hip/knee conditions</h4>
 <pre class="r"><code>readmissionsClean &lt;- readmissionsClean %&gt;%
   select(FacilityName, FacilityId, State, matches(&quot;HIP-KNEE$&quot;))</code></pre>
 </div>
 </div>
-<div id="exploring-and-preprocessing-the-hcahps-dataset-ac" class="section level4">
-<h4>Exploring and Preprocessing the HCAHPS dataset (AC)</h4>
-<div id="viewing-and-checking-for-missing-values-1" class="section level5">
-<h5>Viewing and checking for missing values</h5>
+<div id="exploring-and-preprocessing-the-hcahps-dataset-ac" class="section level3">
+<h3>Exploring and Preprocessing the HCAHPS dataset (AC)</h3>
+<div id="viewing-and-checking-for-missing-values-1" class="section level4">
+<h4>Viewing and checking for missing values</h4>
 <pre class="r"><code># Display first 10 rows of HCAHPS 
 head(HCAHPS,10)</code></pre>
 <pre><code>## # A tibble: 10 × 22
@@ -2238,8 +2222,8 @@ print(miss_vals)</code></pre>
 <pre><code>## PatientSurveyStarRatingFootnote 
 ##                          430641</code></pre>
 </div>
-<div id="removing-footnote-columns-and-replacing-na-values" class="section level5">
-<h5>Removing footnote columns and replacing NA values</h5>
+<div id="removing-footnote-columns-and-replacing-na-values" class="section level4">
+<h4>Removing footnote columns and replacing NA values</h4>
 <pre class="r"><code># Removing all footnote columns
 HCAHPS &lt;- HCAHPS %&gt;%
   select(-ends_with(&quot;footnote&quot;))
@@ -2260,8 +2244,8 @@ HCAHPS &lt;- as.data.frame(sapply(HCAHPS, function(x) {
   return(x)
 }))</code></pre>
 </div>
-<div id="creating-a-dictionary-for-hcahps-questions" class="section level5">
-<h5>Creating a dictionary for HCAHPS questions</h5>
+<div id="creating-a-dictionary-for-hcahps-questions" class="section level4">
+<h4>Creating a dictionary for HCAHPS questions</h4>
 <pre class="r"><code>dictHCAHPS &lt;- tribble(
   ~`Measure ID`, ~`Measure Name`,
   &quot;H-CLEAN-HSP-A-P&quot;, &quot;Patients who reported that their room and bathroom were &#39;Always&#39; clean&quot;,
@@ -2760,8 +2744,8 @@ Summary star rating
 </tbody>
 </table>
 </div>
-<div id="pivoting-the-data-wider-1" class="section level5">
-<h5>Pivoting the data wider</h5>
+<div id="pivoting-the-data-wider-1" class="section level4">
+<h4>Pivoting the data wider</h4>
 <pre class="r"><code>HCAHPSClean &lt;- HCAHPS %&gt;%
   pivot_wider(
     names_from = HcahpsMeasureId, 
@@ -2791,11 +2775,11 @@ dim(HCAHPSClean)</code></pre>
 ## #   PatientSurveyStarRating_H_NURSE_RESPECT_SN_P &lt;chr&gt;, …</code></pre>
 </div>
 </div>
-<div id="exploring-and-preprocessing-the-timely_and_effective_care-dataset-ac" class="section level4">
-<h4>Exploring and Preprocessing the Timely_and_Effective_Care dataset
-(AC)</h4>
-<div id="viewing-and-checking-for-missing-values-2" class="section level5">
-<h5>Viewing and checking for missing values</h5>
+<div id="exploring-and-preprocessing-the-timely_and_effective_care-dataset-ac" class="section level3">
+<h3>Exploring and Preprocessing the Timely_and_Effective_Care dataset
+(AC)</h3>
+<div id="viewing-and-checking-for-missing-values-2" class="section level4">
+<h4>Viewing and checking for missing values</h4>
 <pre class="r"><code># Display first 10 rows of Timely_and_Effective_Care
 head(Timely_and_Effective_Care,10)</code></pre>
 <pre><code>## # A tibble: 10 × 16
@@ -2823,8 +2807,8 @@ miss_vals &lt;- sapply(num_vars, function(x) sum(is.na(x)))
 print(miss_vals)</code></pre>
 <pre><code>## named list()</code></pre>
 </div>
-<div id="replacing-na-values" class="section level5">
-<h5>Replacing NA values</h5>
+<div id="replacing-na-values" class="section level4">
+<h4>Replacing NA values</h4>
 <pre class="r"><code># Replacing all &quot;Not Applicable&quot; with NA
 Timely_and_Effective_Care &lt;- as.data.frame(sapply(Timely_and_Effective_Care, function(x) {
   if (is.character(x)) {
@@ -2841,8 +2825,8 @@ Timely_and_Effective_Care &lt;- as.data.frame(sapply(Timely_and_Effective_Care, 
   return(x)
 }))</code></pre>
 </div>
-<div id="creating-a-dictionary-timely-and-effective-care-measure-names" class="section level5">
-<h5>Creating a dictionary Timely and Effective Care measure names</h5>
+<div id="creating-a-dictionary-timely-and-effective-care-measure-names" class="section level4">
+<h4>Creating a dictionary Timely and Effective Care measure names</h4>
 <pre class="r"><code>dictCare &lt;- tribble(
   ~`Measure ID`, ~`Measure Name`,
   &quot;EDV&quot;, &quot;Emergency department volume (alternate Measure ID: EDV-1)&quot;,
@@ -3087,8 +3071,8 @@ opioid and benzodiazepine concurrently at discharge
 </tbody>
 </table>
 </div>
-<div id="pivoting-the-data-wider-2" class="section level5">
-<h5>Pivoting the data wider</h5>
+<div id="pivoting-the-data-wider-2" class="section level4">
+<h4>Pivoting the data wider</h4>
 <pre class="r"><code>careClean &lt;- Timely_and_Effective_Care %&gt;%
   pivot_wider(
     names_from = MeasureId, 
@@ -3116,10 +3100,781 @@ dim(careClean)</code></pre>
 ## #   VTE_1 &lt;chr&gt;, VTE_2 &lt;chr&gt;</code></pre>
 </div>
 </div>
+<div id="exploring-and-preprocessing-the-complications_and_deaths-dataset-ac" class="section level3">
+<h3>Exploring and Preprocessing the Complications_and_Deaths dataset
+(AC)</h3>
+<div id="viewing-and-checking-for-missing-values-3" class="section level4">
+<h4>Viewing and checking for missing values</h4>
+<pre class="r"><code># Display first 10 rows of Complications_and_Deaths
+head(Complications_and_Deaths,10)</code></pre>
+<pre><code>## # A tibble: 10 × 18
+##    FacilityId FacilityName           Address CityTown State ZipCode CountyParish
+##    &lt;chr&gt;      &lt;chr&gt;                  &lt;chr&gt;   &lt;chr&gt;    &lt;chr&gt; &lt;chr&gt;   &lt;chr&gt;       
+##  1 010001     SOUTHEAST HEALTH MEDI… 1108 R… DOTHAN   AL    36301   HOUSTON     
+##  2 010001     SOUTHEAST HEALTH MEDI… 1108 R… DOTHAN   AL    36301   HOUSTON     
+##  3 010001     SOUTHEAST HEALTH MEDI… 1108 R… DOTHAN   AL    36301   HOUSTON     
+##  4 010001     SOUTHEAST HEALTH MEDI… 1108 R… DOTHAN   AL    36301   HOUSTON     
+##  5 010001     SOUTHEAST HEALTH MEDI… 1108 R… DOTHAN   AL    36301   HOUSTON     
+##  6 010001     SOUTHEAST HEALTH MEDI… 1108 R… DOTHAN   AL    36301   HOUSTON     
+##  7 010001     SOUTHEAST HEALTH MEDI… 1108 R… DOTHAN   AL    36301   HOUSTON     
+##  8 010001     SOUTHEAST HEALTH MEDI… 1108 R… DOTHAN   AL    36301   HOUSTON     
+##  9 010001     SOUTHEAST HEALTH MEDI… 1108 R… DOTHAN   AL    36301   HOUSTON     
+## 10 010001     SOUTHEAST HEALTH MEDI… 1108 R… DOTHAN   AL    36301   HOUSTON     
+## # ℹ 11 more variables: TelephoneNumber &lt;chr&gt;, MeasureId &lt;chr&gt;,
+## #   MeasureName &lt;chr&gt;, ComparedToNational &lt;chr&gt;, Denominator &lt;chr&gt;,
+## #   Score &lt;chr&gt;, LowerEstimate &lt;chr&gt;, HigherEstimate &lt;chr&gt;, Footnote &lt;chr&gt;,
+## #   StartDate &lt;chr&gt;, EndDate &lt;chr&gt;</code></pre>
+<pre class="r"><code># Filter dataset to include numeric columns only
+num_vars &lt;- Complications_and_Deaths %&gt;%
+  select_if(is.numeric)
+
+# Check for missing values
+miss_vals &lt;- sapply(num_vars, function(x) sum(is.na(x)))
+print(miss_vals)</code></pre>
+<pre><code>## named list()</code></pre>
 </div>
-<div id="segmentation-analysis" class="section level2">
-<h2>Segmentation Analysis</h2>
+<div id="replacing-na-values-1" class="section level4">
+<h4>Replacing NA values</h4>
+<pre class="r"><code># Replacing all &quot;Not Applicable&quot; with NA
+Complications_and_Deaths &lt;- as.data.frame(sapply(Complications_and_Deaths, function(x) {
+  if (is.character(x)) {
+    x[x == &quot;Not Applicable&quot;] &lt;- NA
+  }
+  return(x)
+}))
+
+# Replacing all &quot;Not Available&quot; with NA
+Complications_and_Deaths &lt;- as.data.frame(sapply(Complications_and_Deaths, function(x) {
+  if (is.character(x)) {
+    x[x == &quot;Not Available&quot;] &lt;- NA
+  }
+  return(x)
+}))</code></pre>
 </div>
+<div id="creating-a-dictionary-for-complications-and-deaths-measure-names" class="section level4">
+<h4>Creating a dictionary for Complications and Deaths measure
+names</h4>
+<pre class="r"><code>dictDeaths &lt;- tribble(
+  ~`Measure ID`, ~`Measure Name`,
+  &quot;COMP-HIP-KNEE&quot;, &quot;Rate of complications for hip/knee replacement patients&quot;,
+  &quot;PSI 90&quot;, &quot;Serious complications (this is a composite or summary measure; alternate Measure ID: PSI-90-SAFETY)&quot;,
+  &quot;PSI 03&quot;, &quot;Pressure sores (alternate Measure ID: PSI_3_Ulcer)&quot;,
+  &quot;PSI 04&quot;, &quot;Deaths among patients with serious treatable complications after surgery (alternate Measure ID: PSI-4-SURG-COMP)&quot;,
+  &quot;PSI 06&quot;, &quot;Collapsed lung due to medical treatment (alternate Measure ID: PSI-6-IAT-PTX)&quot;,
+  &quot;PSI 08&quot;, &quot;Broken hip from a fall after surgery (alternate Measure ID: PSI_8_POST_HIP)&quot;,
+  &quot;PSI 09&quot;, &quot;Postoperative hemorrhage or hematoma rate (alternate Measure ID: PSI_9_POST_HEM)&quot;,
+  &quot;PSI 10&quot;, &quot;Kidney and diabetic complications after surgery (alternate Measure ID: PSI_10_POST_KIDNEY)&quot;,
+  &quot;PSI 11&quot;, &quot;Respiratory failure after surgery (alternate Measure ID: PSI_11_POST_RESP)&quot;,
+  &quot;PSI 12&quot;, &quot;Serious blood clots after surgery (alternate Measure ID: PSI-12-POSTOP-PULMEMB-DVT)&quot;,
+  &quot;PSI 13&quot;, &quot;Blood stream infection after surgery (alternate Measure ID: PSI_13_POST_SEPSIS)&quot;,
+  &quot;PSI 14&quot;, &quot;A wound that splits open after surgery on the abdomen or pelvis (alternate Measure ID: PSI-14-POSTOP-DEHIS)&quot;,
+  &quot;PSI 15&quot;, &quot;Accidental cuts and tears from medical treatment (alternate Measure ID: PSI-15-ACC-LAC)&quot;,
+  &quot;MORT-30-AMI&quot;, &quot;Death rate for heart attack patients&quot;,
+  &quot;MORT-30-CABG&quot;, &quot;Death rate for Coronary Artery Bypass Graft (CABG) surgery patients&quot;,
+  &quot;MORT-30-COPD&quot;, &quot;Death rate for chronic obstructive pulmonary disease (COPD) patients&quot;,
+  &quot;MORT-30-HF&quot;, &quot;Death rate for heart failure patients&quot;,
+  &quot;MORT-30-PN&quot;, &quot;Death rate for pneumonia patients&quot;,
+  &quot;MORT-30-STK&quot;, &quot;Death rate for stroke patients&quot;
+)
+
+dictDeaths %&gt;% 
+  kable(
+    format = &quot;html&quot;,
+    caption = &quot;Table 5. Measure IDs and Measure Names from Complications and Deaths&quot;) %&gt;%
+    kable_styling(bootstrap_options = c(&quot;hover&quot;, &quot;full_width&quot; = F))</code></pre>
+<table class="table table-hover" style="margin-left: auto; margin-right: auto;">
+<caption>
+Table 5. Measure IDs and Measure Names from Complications and Deaths
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+Measure ID
+</th>
+<th style="text-align:left;">
+Measure Name
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+COMP-HIP-KNEE
+</td>
+<td style="text-align:left;">
+Rate of complications for hip/knee replacement patients
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PSI 90
+</td>
+<td style="text-align:left;">
+Serious complications (this is a composite or summary measure; alternate
+Measure ID: PSI-90-SAFETY)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PSI 03
+</td>
+<td style="text-align:left;">
+Pressure sores (alternate Measure ID: PSI_3_Ulcer)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PSI 04
+</td>
+<td style="text-align:left;">
+Deaths among patients with serious treatable complications after surgery
+(alternate Measure ID: PSI-4-SURG-COMP)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PSI 06
+</td>
+<td style="text-align:left;">
+Collapsed lung due to medical treatment (alternate Measure ID:
+PSI-6-IAT-PTX)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PSI 08
+</td>
+<td style="text-align:left;">
+Broken hip from a fall after surgery (alternate Measure ID:
+PSI_8_POST_HIP)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PSI 09
+</td>
+<td style="text-align:left;">
+Postoperative hemorrhage or hematoma rate (alternate Measure ID:
+PSI_9_POST_HEM)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PSI 10
+</td>
+<td style="text-align:left;">
+Kidney and diabetic complications after surgery (alternate Measure ID:
+PSI_10_POST_KIDNEY)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PSI 11
+</td>
+<td style="text-align:left;">
+Respiratory failure after surgery (alternate Measure ID:
+PSI_11_POST_RESP)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PSI 12
+</td>
+<td style="text-align:left;">
+Serious blood clots after surgery (alternate Measure ID:
+PSI-12-POSTOP-PULMEMB-DVT)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PSI 13
+</td>
+<td style="text-align:left;">
+Blood stream infection after surgery (alternate Measure ID:
+PSI_13_POST_SEPSIS)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PSI 14
+</td>
+<td style="text-align:left;">
+A wound that splits open after surgery on the abdomen or pelvis
+(alternate Measure ID: PSI-14-POSTOP-DEHIS)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PSI 15
+</td>
+<td style="text-align:left;">
+Accidental cuts and tears from medical treatment (alternate Measure ID:
+PSI-15-ACC-LAC)
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MORT-30-AMI
+</td>
+<td style="text-align:left;">
+Death rate for heart attack patients
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MORT-30-CABG
+</td>
+<td style="text-align:left;">
+Death rate for Coronary Artery Bypass Graft (CABG) surgery patients
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MORT-30-COPD
+</td>
+<td style="text-align:left;">
+Death rate for chronic obstructive pulmonary disease (COPD) patients
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MORT-30-HF
+</td>
+<td style="text-align:left;">
+Death rate for heart failure patients
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MORT-30-PN
+</td>
+<td style="text-align:left;">
+Death rate for pneumonia patients
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+MORT-30-STK
+</td>
+<td style="text-align:left;">
+Death rate for stroke patients
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="pivoting-the-data-wider-3" class="section level4">
+<h4>Pivoting the data wider</h4>
+<pre class="r"><code>deathsClean &lt;- Complications_and_Deaths %&gt;%
+  pivot_wider(
+    names_from = MeasureId, 
+    values_from = c(ComparedToNational, Score), 
+    id_cols = c(FacilityName, FacilityId, State)
+  )
+
+# Check the new dataframe
+dim(deathsClean)</code></pre>
+<pre><code>## [1] 4814   41</code></pre>
+<pre class="r"><code>head(deathsClean)</code></pre>
+<pre><code>## # A tibble: 6 × 41
+##   FacilityName    FacilityId State ComparedToNational_C…¹ ComparedToNational_M…²
+##   &lt;chr&gt;           &lt;chr&gt;      &lt;chr&gt; &lt;chr&gt;                  &lt;chr&gt;                 
+## 1 SOUTHEAST HEAL… 010001     AL    No Different Than the… No Different Than the…
+## 2 MARSHALL MEDIC… 010005     AL    No Different Than the… No Different Than the…
+## 3 NORTH ALABAMA … 010006     AL    No Different Than the… Worse Than the Nation…
+## 4 MIZELL MEMORIA… 010007     AL    Number of Cases Too S… Number of Cases Too S…
+## 5 CRENSHAW COMMU… 010008     AL    &lt;NA&gt;                   Number of Cases Too S…
+## 6 ST. VINCENT&#39;S … 010011     AL    No Different Than the… No Different Than the…
+## # ℹ abbreviated names: ¹​ComparedToNational_COMP_HIP_KNEE,
+## #   ²​ComparedToNational_MORT_30_AMI
+## # ℹ 36 more variables: ComparedToNational_MORT_30_CABG &lt;chr&gt;,
+## #   ComparedToNational_MORT_30_COPD &lt;chr&gt;, ComparedToNational_MORT_30_HF &lt;chr&gt;,
+## #   ComparedToNational_MORT_30_PN &lt;chr&gt;, ComparedToNational_MORT_30_STK &lt;chr&gt;,
+## #   ComparedToNational_PSI_03 &lt;chr&gt;, ComparedToNational_PSI_04 &lt;chr&gt;,
+## #   ComparedToNational_PSI_06 &lt;chr&gt;, ComparedToNational_PSI_08 &lt;chr&gt;, …</code></pre>
+</div>
+</div>
+<div id="exploring-and-preprocessing-the-payment_and_value_of_care-dataset-ac" class="section level3">
+<h3>Exploring and Preprocessing the Payment_and_Value_of_Care dataset
+(AC)</h3>
+<div id="viewing-and-checking-for-missing-values-4" class="section level4">
+<h4>Viewing and checking for missing values</h4>
+<pre class="r"><code># Display first 10 rows of Payment_and_Value_of_Care
+head(Payment_and_Value_of_Care,10)</code></pre>
+<pre><code>## # A tibble: 10 × 22
+##    FacilityId FacilityName           Address CityTown State ZipCode CountyParish
+##    &lt;chr&gt;      &lt;chr&gt;                  &lt;chr&gt;   &lt;chr&gt;    &lt;chr&gt; &lt;chr&gt;   &lt;chr&gt;       
+##  1 010001     SOUTHEAST HEALTH MEDI… 1108 R… DOTHAN   AL    36301   HOUSTON     
+##  2 010001     SOUTHEAST HEALTH MEDI… 1108 R… DOTHAN   AL    36301   HOUSTON     
+##  3 010001     SOUTHEAST HEALTH MEDI… 1108 R… DOTHAN   AL    36301   HOUSTON     
+##  4 010001     SOUTHEAST HEALTH MEDI… 1108 R… DOTHAN   AL    36301   HOUSTON     
+##  5 010005     MARSHALL MEDICAL CENT… 2505 U… BOAZ     AL    35957   MARSHALL    
+##  6 010005     MARSHALL MEDICAL CENT… 2505 U… BOAZ     AL    35957   MARSHALL    
+##  7 010005     MARSHALL MEDICAL CENT… 2505 U… BOAZ     AL    35957   MARSHALL    
+##  8 010005     MARSHALL MEDICAL CENT… 2505 U… BOAZ     AL    35957   MARSHALL    
+##  9 010006     NORTH ALABAMA MEDICAL… 1701 V… FLORENCE AL    35630   LAUDERDALE  
+## 10 010006     NORTH ALABAMA MEDICAL… 1701 V… FLORENCE AL    35630   LAUDERDALE  
+## # ℹ 15 more variables: TelephoneNumber &lt;chr&gt;, PaymentMeasureId &lt;chr&gt;,
+## #   PaymentMeasureName &lt;chr&gt;, PaymentCategory &lt;chr&gt;, Denominator &lt;chr&gt;,
+## #   Payment &lt;chr&gt;, LowerEstimate &lt;chr&gt;, HigherEstimate &lt;chr&gt;,
+## #   PaymentFootnote &lt;dbl&gt;, ValueOfCareDisplayId &lt;chr&gt;,
+## #   ValueOfCareDisplayName &lt;chr&gt;, ValueOfCareCategory &lt;chr&gt;,
+## #   ValueOfCareFootnote &lt;dbl&gt;, StartDate &lt;chr&gt;, EndDate &lt;chr&gt;</code></pre>
+<pre class="r"><code># Filter dataset to include numeric columns only
+num_vars &lt;- Payment_and_Value_of_Care %&gt;%
+  select_if(is.numeric)
+
+# Check for missing values
+miss_vals &lt;- sapply(num_vars, function(x) sum(is.na(x)))
+print(miss_vals)</code></pre>
+<pre><code>##     PaymentFootnote ValueOfCareFootnote 
+##                9956               10044</code></pre>
+</div>
+<div id="replacing-na-values-2" class="section level4">
+<h4>Replacing NA values</h4>
+<pre class="r"><code># Replacing all &quot;Not Applicable&quot; with NA
+Payment_and_Value_of_Care &lt;- as.data.frame(sapply(Payment_and_Value_of_Care, function(x) {
+  if (is.character(x)) {
+    x[x == &quot;Not Applicable&quot;] &lt;- NA
+  }
+  return(x)
+}))
+
+# Replacing all &quot;Not Available&quot; with NA
+Payment_and_Value_of_Care &lt;- as.data.frame(sapply(Payment_and_Value_of_Care, function(x) {
+  if (is.character(x)) {
+    x[x == &quot;Not Available&quot;] &lt;- NA
+  }
+  return(x)
+}))</code></pre>
+</div>
+<div id="creating-a-dictionary-for-payment-and-value-of-care-measure-names" class="section level4">
+<h4>Creating a dictionary for Payment and Value of Care measure
+names</h4>
+<pre class="r"><code>dictPayment &lt;- tribble(
+  ~`Measure ID`, ~`Measure Name`,
+  &quot;PAYM-30-AMI&quot;, &quot;Payment for heart attack patients&quot;,
+  &quot;PAYM-30-HF&quot;, &quot;Payment for heart failure patients&quot;,
+  &quot;PAYM-30-PN&quot;, &quot;Payment for pneumonia patients&quot;,
+  &quot;PAYM_90_HIP_KNEE&quot;, &quot;Payment for hip/knee replacement patients&quot;
+)
+
+dictPayment %&gt;% 
+  kable(
+    format = &quot;html&quot;,
+    caption = &quot;Table 6. Measure IDs and Measure Names from Payment and Value of Care&quot;) %&gt;%
+    kable_styling(bootstrap_options = c(&quot;hover&quot;, &quot;full_width&quot; = F))</code></pre>
+<table class="table table-hover" style="margin-left: auto; margin-right: auto;">
+<caption>
+Table 6. Measure IDs and Measure Names from Payment and Value of Care
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+Measure ID
+</th>
+<th style="text-align:left;">
+Measure Name
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+PAYM-30-AMI
+</td>
+<td style="text-align:left;">
+Payment for heart attack patients
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PAYM-30-HF
+</td>
+<td style="text-align:left;">
+Payment for heart failure patients
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PAYM-30-PN
+</td>
+<td style="text-align:left;">
+Payment for pneumonia patients
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+PAYM_90_HIP_KNEE
+</td>
+<td style="text-align:left;">
+Payment for hip/knee replacement patients
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="pivoting-the-data-wider-4" class="section level4">
+<h4>Pivoting the data wider</h4>
+<pre class="r"><code>paymentClean &lt;- Payment_and_Value_of_Care %&gt;%
+  pivot_wider(
+    names_from = PaymentMeasureId, 
+    values_from = c(PaymentCategory, Payment), 
+    id_cols = c(FacilityName, FacilityId, State)
+  )
+
+# Check the new dataframe
+dim(paymentClean)</code></pre>
+<pre><code>## [1] 4645   11</code></pre>
+<pre class="r"><code>head(paymentClean)</code></pre>
+<pre><code>## # A tibble: 6 × 11
+##   FacilityName    FacilityId State PaymentCategory_PAYM…¹ PaymentCategory_PAYM…²
+##   &lt;chr&gt;           &lt;chr&gt;      &lt;chr&gt; &lt;chr&gt;                  &lt;chr&gt;                 
+## 1 SOUTHEAST HEAL… 010001     AL    No Different Than the… No Different Than the…
+## 2 MARSHALL MEDIC… 010005     AL    No Different Than the… No Different Than the…
+## 3 NORTH ALABAMA … 010006     AL    Greater Than the Nati… No Different Than the…
+## 4 MIZELL MEMORIA… 010007     AL    Number of Cases Too S… No Different Than the…
+## 5 CRENSHAW COMMU… 010008     AL    Number of Cases Too S… Number of Cases Too S…
+## 6 ST. VINCENT&#39;S … 010011     AL    No Different Than the… No Different Than the…
+## # ℹ abbreviated names: ¹​PaymentCategory_PAYM_30_AMI,
+## #   ²​PaymentCategory_PAYM_30_HF
+## # ℹ 6 more variables: PaymentCategory_PAYM_30_PN &lt;chr&gt;,
+## #   PaymentCategory_PAYM_90_HIP_KNEE &lt;chr&gt;, Payment_PAYM_30_AMI &lt;chr&gt;,
+## #   Payment_PAYM_30_HF &lt;chr&gt;, Payment_PAYM_30_PN &lt;chr&gt;,
+## #   Payment_PAYM_90_HIP_KNEE &lt;chr&gt;</code></pre>
+</div>
+<div id="selecting-only-hip-knee-related" class="section level4">
+<h4>Selecting only Hip-Knee related</h4>
+<pre class="r"><code>paymentClean &lt;- paymentClean %&gt;%
+  select(FacilityName, FacilityId, State, matches(&quot;HIP_KNEE$&quot;))</code></pre>
+</div>
+</div>
+<div id="joining-and-cleaning-the-datasets-ac" class="section level3">
+<h3>Joining and cleaning the datasets (AC)</h3>
+<div id="joining-the-datasets-based-on-facilityid" class="section level4">
+<h4>Joining the datasets based on FacilityId</h4>
+<pre class="r"><code>HipKneeClean &lt;- readmissionsClean %&gt;%
+  full_join(HCAHPSClean, by = &quot;FacilityId&quot;) %&gt;%
+  full_join(careClean, by = &quot;FacilityId&quot;) %&gt;%
+  full_join(deathsClean, by = &quot;FacilityId&quot;) %&gt;%
+  full_join(paymentClean, by = &quot;FacilityId&quot;)
+
+head(HipKneeClean)</code></pre>
+<pre><code>## # A tibble: 6 × 451
+##   FacilityName.x                  FacilityId State.x NumberOfDischarges_HIP-KN…¹
+##   &lt;chr&gt;                           &lt;chr&gt;      &lt;chr&gt;                         &lt;dbl&gt;
+## 1 SOUTHEAST HEALTH MEDICAL CENTER 010001     AL                               NA
+## 2 MARSHALL MEDICAL CENTERS        010005     AL                               NA
+## 3 NORTH ALABAMA MEDICAL CENTER    010006     AL                               NA
+## 4 MIZELL MEMORIAL HOSPITAL        010007     AL                               NA
+## 5 CRENSHAW COMMUNITY HOSPITAL     010008     AL                               NA
+## 6 ST. VINCENT&#39;S EAST              010011     AL                               NA
+## # ℹ abbreviated name: ¹​`NumberOfDischarges_HIP-KNEE`
+## # ℹ 447 more variables: `ExcessReadmissionRatio_HIP-KNEE` &lt;dbl&gt;,
+## #   `PredictedReadmissionRate_HIP-KNEE` &lt;dbl&gt;,
+## #   `ExpectedReadmissionRate_HIP-KNEE` &lt;dbl&gt;,
+## #   `NumberOfReadmissions_HIP-KNEE` &lt;dbl&gt;, FacilityName.y &lt;chr&gt;, State.y &lt;chr&gt;,
+## #   PatientSurveyStarRating_H_COMP_1_A_P &lt;chr&gt;,
+## #   PatientSurveyStarRating_H_COMP_1_SN_P &lt;chr&gt;, …</code></pre>
+</div>
+<div id="removing-redundant-columns" class="section level4">
+<h4>Removing redundant columns</h4>
+<pre class="r"><code># Removing duplicate columns
+HipKneeClean &lt;- HipKneeClean %&gt;%
+  select(-matches(&quot;\\.(x|y|z|w|v)$&quot;))</code></pre>
+</div>
+<div id="checking-for-na-values" class="section level4">
+<h4>Checking for NA Values</h4>
+<pre class="r"><code># Checking the dimensions
+dim(HipKneeClean)
+
+# Count NA values in each column
+na_counts &lt;- sapply(HipKneeClean, function(x) sum(is.na(x)))
+
+# View the NA counts
+print(na_counts)</code></pre>
+</div>
+<div id="removing-columns-with-more-than-80-na-values" class="section level4">
+<h4>Removing columns with more than 80% NA values</h4>
+<pre class="r"><code># Calculate the percentage of NA values for each column
+na_percentage &lt;- sapply(HipKneeClean, function(x) mean(is.na(x)))
+
+# Remove columns where more than 80% of the values are NA
+HipKneeClean &lt;- HipKneeClean[, na_percentage &lt;= 0.8]
+
+# Count NA values in each column
+na_counts &lt;- sapply(HipKneeClean, function(x) sum(is.na(x)))
+
+# View the NA counts
+print(na_counts)
+
+# Check the dimensions
+dim(HipKneeClean)</code></pre>
+</div>
+<div id="removing-answer-percent-and-survey-response-percent-columns" class="section level4">
+<h4>Removing answer percent and survey response percent columns</h4>
+<pre class="r"><code># Remove columns containing &#39;AnswerPercent&#39; or &#39;SurveyResponseRate&#39;
+HipKneeClean &lt;- HipKneeClean %&gt;%
+  select(-matches(&quot;AnswerPercent|SurveyResponseRate&quot;))
+
+# Check the dimensions
+dim(HipKneeClean)</code></pre>
+<pre><code>## [1] 4816   87</code></pre>
+</div>
+<div id="removing-compared-to-national-columns" class="section level4">
+<h4>Removing compared to national columns</h4>
+<pre class="r"><code># Remove columns containing &#39;ComparedToNational&#39; and &#39;PaymentCategory&#39;
+HipKneeClean &lt;- HipKneeClean %&gt;%
+  select(-matches(&quot;ComparedToNational|PaymentCategory&quot;))
+
+# Check the dimensions
+dim(HipKneeClean)</code></pre>
+<pre><code>## [1] 4816   67</code></pre>
+</div>
+<div id="checking-data-structure" class="section level4">
+<h4>Checking data structure</h4>
+<pre class="r"><code>str(HipKneeClean)</code></pre>
+<pre><code>## tibble [4,816 × 67] (S3: tbl_df/tbl/data.frame)
+##  $ FacilityId                                      : chr [1:4816] &quot;010001&quot; &quot;010005&quot; &quot;010006&quot; &quot;010007&quot; ...
+##  $ ExcessReadmissionRatio_HIP-KNEE                 : num [1:4816] 0.892 0.798 1.247 0.992 NA ...
+##  $ PredictedReadmissionRate_HIP-KNEE               : num [1:4816] 3.53 3.76 5.52 4.34 NA ...
+##  $ ExpectedReadmissionRate_HIP-KNEE                : num [1:4816] 3.96 4.72 4.43 4.37 NA ...
+##  $ NumberOfReadmissions_HIP-KNEE                   : num [1:4816] 10 4 4 10 NA 6 5 9 NA 9 ...
+##  $ PatientSurveyStarRating_H_COMP_1_STAR_RATING    : chr [1:4816] &quot;3&quot; &quot;3&quot; &quot;2&quot; &quot;3&quot; ...
+##  $ PatientSurveyStarRating_H_COMP_2_STAR_RATING    : chr [1:4816] &quot;4&quot; &quot;4&quot; &quot;3&quot; &quot;5&quot; ...
+##  $ PatientSurveyStarRating_H_COMP_3_STAR_RATING    : chr [1:4816] &quot;3&quot; &quot;2&quot; &quot;2&quot; &quot;4&quot; ...
+##  $ PatientSurveyStarRating_H_COMP_5_STAR_RATING    : chr [1:4816] &quot;3&quot; &quot;3&quot; &quot;2&quot; &quot;3&quot; ...
+##  $ PatientSurveyStarRating_H_COMP_6_STAR_RATING    : chr [1:4816] &quot;4&quot; &quot;3&quot; &quot;3&quot; &quot;4&quot; ...
+##  $ PatientSurveyStarRating_H_COMP_7_STAR_RATING    : chr [1:4816] &quot;4&quot; &quot;3&quot; &quot;2&quot; &quot;4&quot; ...
+##  $ PatientSurveyStarRating_H_CLEAN_STAR_RATING     : chr [1:4816] &quot;3&quot; &quot;2&quot; &quot;1&quot; &quot;2&quot; ...
+##  $ PatientSurveyStarRating_H_QUIET_STAR_RATING     : chr [1:4816] &quot;4&quot; &quot;4&quot; &quot;4&quot; &quot;4&quot; ...
+##  $ PatientSurveyStarRating_H_HSP_RATING_STAR_RATING: chr [1:4816] &quot;4&quot; &quot;3&quot; &quot;2&quot; &quot;4&quot; ...
+##  $ PatientSurveyStarRating_H_RECMND_STAR_RATING    : chr [1:4816] &quot;4&quot; &quot;3&quot; &quot;2&quot; &quot;4&quot; ...
+##  $ PatientSurveyStarRating_H_STAR_RATING           : chr [1:4816] &quot;4&quot; &quot;3&quot; &quot;2&quot; &quot;4&quot; ...
+##  $ HcahpsLinearMeanValue_H_COMP_1_LINEAR_SCORE     : chr [1:4816] &quot;89&quot; &quot;90&quot; &quot;88&quot; &quot;91&quot; ...
+##  $ HcahpsLinearMeanValue_H_COMP_2_LINEAR_SCORE     : chr [1:4816] &quot;91&quot; &quot;92&quot; &quot;89&quot; &quot;95&quot; ...
+##  $ HcahpsLinearMeanValue_H_COMP_3_LINEAR_SCORE     : chr [1:4816] &quot;81&quot; &quot;75&quot; &quot;75&quot; &quot;88&quot; ...
+##  $ HcahpsLinearMeanValue_H_COMP_5_LINEAR_SCORE     : chr [1:4816] &quot;77&quot; &quot;76&quot; &quot;71&quot; &quot;77&quot; ...
+##  $ HcahpsLinearMeanValue_H_COMP_6_LINEAR_SCORE     : chr [1:4816] &quot;87&quot; &quot;86&quot; &quot;83&quot; &quot;87&quot; ...
+##  $ HcahpsLinearMeanValue_H_COMP_7_LINEAR_SCORE     : chr [1:4816] &quot;82&quot; &quot;79&quot; &quot;77&quot; &quot;82&quot; ...
+##  $ HcahpsLinearMeanValue_H_CLEAN_LINEAR_SCORE      : chr [1:4816] &quot;84&quot; &quot;80&quot; &quot;74&quot; &quot;80&quot; ...
+##  $ HcahpsLinearMeanValue_H_QUIET_LINEAR_SCORE      : chr [1:4816] &quot;86&quot; &quot;85&quot; &quot;85&quot; &quot;87&quot; ...
+##  $ HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE : chr [1:4816] &quot;89&quot; &quot;85&quot; &quot;82&quot; &quot;89&quot; ...
+##  $ HcahpsLinearMeanValue_H_RECMND_LINEAR_SCORE     : chr [1:4816] &quot;90&quot; &quot;83&quot; &quot;79&quot; &quot;88&quot; ...
+##  $ EDV                                             : chr [1:4816] &quot;high&quot; &quot;high&quot; &quot;high&quot; &quot;low&quot; ...
+##  $ ED_2_Strata_1                                   : chr [1:4816] NA &quot;148&quot; NA NA ...
+##  $ HCP_COVID_19                                    : chr [1:4816] &quot;80.7&quot; &quot;79.8&quot; &quot;79&quot; &quot;57.9&quot; ...
+##  $ IMM_3                                           : chr [1:4816] &quot;95&quot; &quot;80&quot; &quot;67&quot; &quot;53&quot; ...
+##  $ OP_18b                                          : chr [1:4816] &quot;215&quot; &quot;147&quot; &quot;177&quot; &quot;130&quot; ...
+##  $ OP_18c                                          : chr [1:4816] &quot;317&quot; &quot;266&quot; NA &quot;216&quot; ...
+##  $ OP_22                                           : chr [1:4816] &quot;5&quot; &quot;3&quot; &quot;1&quot; &quot;4&quot; ...
+##  $ OP_23                                           : chr [1:4816] NA NA &quot;69&quot; NA ...
+##  $ OP_29                                           : chr [1:4816] &quot;47&quot; &quot;96&quot; &quot;85&quot; &quot;23&quot; ...
+##  $ SAFE_USE_OF_OPIOIDS                             : chr [1:4816] &quot;14&quot; &quot;19&quot; &quot;17&quot; NA ...
+##  $ SEP_1                                           : chr [1:4816] &quot;66&quot; &quot;74&quot; &quot;56&quot; &quot;86&quot; ...
+##  $ SEP_SH_3HR                                      : chr [1:4816] &quot;70&quot; &quot;88&quot; &quot;77&quot; NA ...
+##  $ SEP_SH_6HR                                      : chr [1:4816] &quot;100&quot; &quot;91&quot; &quot;81&quot; NA ...
+##  $ SEV_SEP_3HR                                     : chr [1:4816] &quot;79&quot; &quot;88&quot; &quot;78&quot; &quot;89&quot; ...
+##  $ SEV_SEP_6HR                                     : chr [1:4816] &quot;95&quot; &quot;96&quot; &quot;86&quot; &quot;97&quot; ...
+##  $ STK_02                                          : chr [1:4816] &quot;98&quot; &quot;100&quot; &quot;96&quot; NA ...
+##  $ STK_05                                          : chr [1:4816] NA &quot;91&quot; NA NA ...
+##  $ STK_06                                          : chr [1:4816] NA NA &quot;97&quot; NA ...
+##  $ VTE_1                                           : chr [1:4816] &quot;98&quot; NA NA NA ...
+##  $ VTE_2                                           : chr [1:4816] &quot;99&quot; NA &quot;97&quot; NA ...
+##  $ Score_COMP_HIP_KNEE                             : chr [1:4816] &quot;2.7&quot; &quot;2.3&quot; &quot;4.6&quot; NA ...
+##  $ Score_MORT_30_AMI                               : chr [1:4816] &quot;12&quot; &quot;13.6&quot; &quot;16.5&quot; NA ...
+##  $ Score_MORT_30_COPD                              : chr [1:4816] &quot;8.8&quot; &quot;9.9&quot; &quot;9.9&quot; &quot;13.7&quot; ...
+##  $ Score_MORT_30_HF                                : chr [1:4816] &quot;8.9&quot; &quot;14.9&quot; &quot;12.5&quot; &quot;12.5&quot; ...
+##  $ Score_MORT_30_PN                                : chr [1:4816] &quot;18&quot; &quot;23.3&quot; &quot;19.5&quot; &quot;28.5&quot; ...
+##  $ Score_MORT_30_STK                               : chr [1:4816] &quot;14.8&quot; &quot;15.3&quot; &quot;17.2&quot; NA ...
+##  $ Score_PSI_03                                    : chr [1:4816] &quot;0.39&quot; &quot;0.94&quot; &quot;1.39&quot; &quot;0.42&quot; ...
+##  $ Score_PSI_04                                    : chr [1:4816] &quot;184.68&quot; &quot;183.49&quot; &quot;173.63&quot; NA ...
+##  $ Score_PSI_06                                    : chr [1:4816] &quot;0.23&quot; &quot;0.22&quot; &quot;0.36&quot; &quot;0.24&quot; ...
+##  $ Score_PSI_08                                    : chr [1:4816] &quot;0.10&quot; &quot;0.09&quot; &quot;0.08&quot; &quot;0.09&quot; ...
+##  $ Score_PSI_09                                    : chr [1:4816] &quot;2.39&quot; &quot;2.69&quot; &quot;5.43&quot; &quot;2.49&quot; ...
+##  $ Score_PSI_10                                    : chr [1:4816] &quot;1.14&quot; &quot;1.37&quot; &quot;1.26&quot; &quot;1.57&quot; ...
+##  $ Score_PSI_11                                    : chr [1:4816] &quot;13.83&quot; &quot;7.19&quot; &quot;7.37&quot; &quot;8.45&quot; ...
+##  $ Score_PSI_12                                    : chr [1:4816] &quot;4.49&quot; &quot;3.01&quot; &quot;3.36&quot; &quot;3.89&quot; ...
+##  $ Score_PSI_13                                    : chr [1:4816] &quot;8.05&quot; &quot;4.46&quot; &quot;4.37&quot; &quot;5.19&quot; ...
+##  $ Score_PSI_14                                    : chr [1:4816] &quot;1.69&quot; &quot;1.87&quot; &quot;1.76&quot; NA ...
+##  $ Score_PSI_15                                    : chr [1:4816] &quot;0.93&quot; &quot;0.91&quot; &quot;1.34&quot; &quot;1.08&quot; ...
+##  $ Score_PSI_90                                    : chr [1:4816] &quot;1.21&quot; &quot;0.97&quot; &quot;1.17&quot; &quot;0.95&quot; ...
+##  $ FacilityName                                    : chr [1:4816] &quot;SOUTHEAST HEALTH MEDICAL CENTER&quot; &quot;MARSHALL MEDICAL CENTERS&quot; &quot;NORTH ALABAMA MEDICAL CENTER&quot; &quot;MIZELL MEMORIAL HOSPITAL&quot; ...
+##  $ State                                           : chr [1:4816] &quot;AL&quot; &quot;AL&quot; &quot;AL&quot; &quot;AL&quot; ...
+##  $ Payment_PAYM_90_HIP_KNEE                        : chr [1:4816] &quot;$22,212&quot; &quot;$18,030&quot; &quot;$21,898&quot; NA ...</code></pre>
+<pre class="r"><code># Convert columns to numeric
+HipKneeClean &lt;- HipKneeClean %&gt;%
+  mutate_at(vars(starts_with(&quot;PatientSurveyStarRating_&quot;), 
+                 starts_with(&quot;HcahpsLinearMeanValue_&quot;), 
+                 starts_with(&quot;Score_&quot;),
+                 starts_with(&quot;ED_&quot;),
+                 starts_with(&quot;IMM_&quot;),
+                 starts_with(&quot;OP_&quot;),
+                 starts_with(&quot;SEP_&quot;),
+                 starts_with(&quot;SEV_&quot;),
+                 starts_with(&quot;STK_&quot;),
+                 starts_with(&quot;VTE_&quot;),
+                 starts_with(&quot;SAFE_&quot;),
+                 starts_with(&quot;HCP_&quot;)),
+            ~ as.numeric(as.character(.)))
+
+# View the structure
+str(HipKneeClean)</code></pre>
+<pre><code>## tibble [4,816 × 67] (S3: tbl_df/tbl/data.frame)
+##  $ FacilityId                                      : chr [1:4816] &quot;010001&quot; &quot;010005&quot; &quot;010006&quot; &quot;010007&quot; ...
+##  $ ExcessReadmissionRatio_HIP-KNEE                 : num [1:4816] 0.892 0.798 1.247 0.992 NA ...
+##  $ PredictedReadmissionRate_HIP-KNEE               : num [1:4816] 3.53 3.76 5.52 4.34 NA ...
+##  $ ExpectedReadmissionRate_HIP-KNEE                : num [1:4816] 3.96 4.72 4.43 4.37 NA ...
+##  $ NumberOfReadmissions_HIP-KNEE                   : num [1:4816] 10 4 4 10 NA 6 5 9 NA 9 ...
+##  $ PatientSurveyStarRating_H_COMP_1_STAR_RATING    : num [1:4816] 3 3 2 3 NA 3 3 3 NA 4 ...
+##  $ PatientSurveyStarRating_H_COMP_2_STAR_RATING    : num [1:4816] 4 4 3 5 NA 3 4 4 NA 4 ...
+##  $ PatientSurveyStarRating_H_COMP_3_STAR_RATING    : num [1:4816] 3 2 2 4 NA 4 3 2 NA 4 ...
+##  $ PatientSurveyStarRating_H_COMP_5_STAR_RATING    : num [1:4816] 3 3 2 3 NA 3 3 2 NA 4 ...
+##  $ PatientSurveyStarRating_H_COMP_6_STAR_RATING    : num [1:4816] 4 3 3 4 NA 3 3 2 NA 3 ...
+##  $ PatientSurveyStarRating_H_COMP_7_STAR_RATING    : num [1:4816] 4 3 2 4 NA 3 3 3 NA 4 ...
+##  $ PatientSurveyStarRating_H_CLEAN_STAR_RATING     : num [1:4816] 3 2 1 2 NA 2 2 1 NA 4 ...
+##  $ PatientSurveyStarRating_H_QUIET_STAR_RATING     : num [1:4816] 4 4 4 4 NA 4 4 3 NA 5 ...
+##  $ PatientSurveyStarRating_H_HSP_RATING_STAR_RATING: num [1:4816] 4 3 2 4 NA 3 2 3 NA 4 ...
+##  $ PatientSurveyStarRating_H_RECMND_STAR_RATING    : num [1:4816] 4 3 2 4 NA 4 2 3 NA 4 ...
+##  $ PatientSurveyStarRating_H_STAR_RATING           : num [1:4816] 4 3 2 4 NA 3 3 3 NA 4 ...
+##  $ HcahpsLinearMeanValue_H_COMP_1_LINEAR_SCORE     : num [1:4816] 89 90 88 91 NA 90 91 89 NA 92 ...
+##  $ HcahpsLinearMeanValue_H_COMP_2_LINEAR_SCORE     : num [1:4816] 91 92 89 95 NA 90 91 91 NA 92 ...
+##  $ HcahpsLinearMeanValue_H_COMP_3_LINEAR_SCORE     : num [1:4816] 81 75 75 88 NA 85 80 78 NA 85 ...
+##  $ HcahpsLinearMeanValue_H_COMP_5_LINEAR_SCORE     : num [1:4816] 77 76 71 77 NA 76 76 72 NA 78 ...
+##  $ HcahpsLinearMeanValue_H_COMP_6_LINEAR_SCORE     : num [1:4816] 87 86 83 87 NA 86 86 81 NA 86 ...
+##  $ HcahpsLinearMeanValue_H_COMP_7_LINEAR_SCORE     : num [1:4816] 82 79 77 82 NA 81 79 80 NA 83 ...
+##  $ HcahpsLinearMeanValue_H_CLEAN_LINEAR_SCORE      : num [1:4816] 84 80 74 80 NA 81 83 78 NA 88 ...
+##  $ HcahpsLinearMeanValue_H_QUIET_LINEAR_SCORE      : num [1:4816] 86 85 85 87 NA 84 84 82 NA 89 ...
+##  $ HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE : num [1:4816] 89 85 82 89 NA 88 83 85 NA 90 ...
+##  $ HcahpsLinearMeanValue_H_RECMND_LINEAR_SCORE     : num [1:4816] 90 83 79 88 NA 87 80 84 NA 91 ...
+##  $ EDV                                             : chr [1:4816] &quot;high&quot; &quot;high&quot; &quot;high&quot; &quot;low&quot; ...
+##  $ ED_2_Strata_1                                   : num [1:4816] NA 148 NA NA NA NA NA NA NA NA ...
+##  $ HCP_COVID_19                                    : num [1:4816] 80.7 79.8 79 57.9 81.2 88 69.8 87.3 95.9 85.3 ...
+##  $ IMM_3                                           : num [1:4816] 95 80 67 53 45 81 65 93 98 81 ...
+##  $ OP_18b                                          : num [1:4816] 215 147 177 130 118 206 160 185 102 145 ...
+##  $ OP_18c                                          : num [1:4816] 317 266 NA 216 98 124 220 220 NA 324 ...
+##  $ OP_22                                           : num [1:4816] 5 3 1 4 0 5 4 3 0 2 ...
+##  $ OP_23                                           : num [1:4816] NA NA 69 NA NA 47 NA 73 NA 35 ...
+##  $ OP_29                                           : num [1:4816] 47 96 85 23 67 100 100 NA NA 82 ...
+##  $ SAFE_USE_OF_OPIOIDS                             : num [1:4816] 14 19 17 NA NA 20 14 23 NA 17 ...
+##  $ SEP_1                                           : num [1:4816] 66 74 56 86 NA 51 92 77 NA 87 ...
+##  $ SEP_SH_3HR                                      : num [1:4816] 70 88 77 NA NA 78 94 83 NA 90 ...
+##  $ SEP_SH_6HR                                      : num [1:4816] 100 91 81 NA NA 81 83 100 NA 94 ...
+##  $ SEV_SEP_3HR                                     : num [1:4816] 79 88 78 89 NA 69 95 85 NA 94 ...
+##  $ SEV_SEP_6HR                                     : num [1:4816] 95 96 86 97 NA 91 99 97 NA 99 ...
+##  $ STK_02                                          : num [1:4816] 98 100 96 NA NA 93 NA 99 NA NA ...
+##  $ STK_05                                          : num [1:4816] NA 91 NA NA NA NA NA NA NA NA ...
+##  $ STK_06                                          : num [1:4816] NA NA 97 NA NA NA NA NA NA NA ...
+##  $ VTE_1                                           : num [1:4816] 98 NA NA NA NA 79 89 84 44 59 ...
+##  $ VTE_2                                           : num [1:4816] 99 NA 97 NA NA 88 93 94 NA NA ...
+##  $ Score_COMP_HIP_KNEE                             : num [1:4816] 2.7 2.3 4.6 NA NA 3.5 3.8 3.5 NA 4.3 ...
+##  $ Score_MORT_30_AMI                               : num [1:4816] 12 13.6 16.5 NA NA 13.2 13.8 13.1 NA NA ...
+##  $ Score_MORT_30_COPD                              : num [1:4816] 8.8 9.9 9.9 13.7 NA 10.3 NA 9.2 NA 7.8 ...
+##  $ Score_MORT_30_HF                                : num [1:4816] 8.9 14.9 12.5 12.5 NA 13.5 13.6 9.9 NA 16.9 ...
+##  $ Score_MORT_30_PN                                : num [1:4816] 18 23.3 19.5 28.5 NA 20.9 22 17.2 NA 26.1 ...
+##  $ Score_MORT_30_STK                               : num [1:4816] 14.8 15.3 17.2 NA NA 12.3 NA 13.2 NA 17.3 ...
+##  $ Score_PSI_03                                    : num [1:4816] 0.39 0.94 1.39 0.42 0.54 0.13 0.41 0.63 0.57 0.47 ...
+##  $ Score_PSI_04                                    : num [1:4816] 185 183 174 NA NA ...
+##  $ Score_PSI_06                                    : num [1:4816] 0.23 0.22 0.36 0.24 0.25 0.24 0.24 0.21 0.25 0.22 ...
+##  $ Score_PSI_08                                    : num [1:4816] 0.1 0.09 0.08 0.09 0.09 0.08 0.09 0.09 0.09 0.09 ...
+##  $ Score_PSI_09                                    : num [1:4816] 2.39 2.69 5.43 2.49 NA 1.88 2.44 3.29 2.44 2.58 ...
+##  $ Score_PSI_10                                    : num [1:4816] 1.14 1.37 1.26 1.57 NA 1.72 1.51 1.2 1.57 NA ...
+##  $ Score_PSI_11                                    : num [1:4816] 13.83 7.19 7.37 8.45 NA ...
+##  $ Score_PSI_12                                    : num [1:4816] 4.49 3.01 3.36 3.89 NA 3.04 3.32 3.67 3.56 5.63 ...
+##  $ Score_PSI_13                                    : num [1:4816] 8.05 4.46 4.37 5.19 NA 5.55 4.88 6.08 5.18 NA ...
+##  $ Score_PSI_14                                    : num [1:4816] 1.69 1.87 1.76 NA NA 1.86 2.46 2.77 NA 1.83 ...
+##  $ Score_PSI_15                                    : num [1:4816] 0.93 0.91 1.34 1.08 NA 1.18 1.04 0.84 NA 0.88 ...
+##  $ Score_PSI_90                                    : num [1:4816] 1.21 0.97 1.17 0.95 NA 0.72 0.89 1.17 0.98 1.05 ...
+##  $ FacilityName                                    : chr [1:4816] &quot;SOUTHEAST HEALTH MEDICAL CENTER&quot; &quot;MARSHALL MEDICAL CENTERS&quot; &quot;NORTH ALABAMA MEDICAL CENTER&quot; &quot;MIZELL MEMORIAL HOSPITAL&quot; ...
+##  $ State                                           : chr [1:4816] &quot;AL&quot; &quot;AL&quot; &quot;AL&quot; &quot;AL&quot; ...
+##  $ Payment_PAYM_90_HIP_KNEE                        : chr [1:4816] &quot;$22,212&quot; &quot;$18,030&quot; &quot;$21,898&quot; NA ...</code></pre>
+</div>
+<div id="fixing-the-payment-column" class="section level4">
+<h4>Fixing the payment column</h4>
+<pre class="r"><code># Remove $ and , and convert to numeric
+HipKneeClean &lt;- HipKneeClean %&gt;%
+  mutate_at(vars(starts_with(&quot;Payment_&quot;)), 
+            ~ as.numeric(gsub(&quot;[\\$,]&quot;, &quot;&quot;, .)))
+
+# Checking the structure
+str(HipKneeClean)</code></pre>
+<pre><code>## tibble [4,816 × 67] (S3: tbl_df/tbl/data.frame)
+##  $ FacilityId                                      : chr [1:4816] &quot;010001&quot; &quot;010005&quot; &quot;010006&quot; &quot;010007&quot; ...
+##  $ ExcessReadmissionRatio_HIP-KNEE                 : num [1:4816] 0.892 0.798 1.247 0.992 NA ...
+##  $ PredictedReadmissionRate_HIP-KNEE               : num [1:4816] 3.53 3.76 5.52 4.34 NA ...
+##  $ ExpectedReadmissionRate_HIP-KNEE                : num [1:4816] 3.96 4.72 4.43 4.37 NA ...
+##  $ NumberOfReadmissions_HIP-KNEE                   : num [1:4816] 10 4 4 10 NA 6 5 9 NA 9 ...
+##  $ PatientSurveyStarRating_H_COMP_1_STAR_RATING    : num [1:4816] 3 3 2 3 NA 3 3 3 NA 4 ...
+##  $ PatientSurveyStarRating_H_COMP_2_STAR_RATING    : num [1:4816] 4 4 3 5 NA 3 4 4 NA 4 ...
+##  $ PatientSurveyStarRating_H_COMP_3_STAR_RATING    : num [1:4816] 3 2 2 4 NA 4 3 2 NA 4 ...
+##  $ PatientSurveyStarRating_H_COMP_5_STAR_RATING    : num [1:4816] 3 3 2 3 NA 3 3 2 NA 4 ...
+##  $ PatientSurveyStarRating_H_COMP_6_STAR_RATING    : num [1:4816] 4 3 3 4 NA 3 3 2 NA 3 ...
+##  $ PatientSurveyStarRating_H_COMP_7_STAR_RATING    : num [1:4816] 4 3 2 4 NA 3 3 3 NA 4 ...
+##  $ PatientSurveyStarRating_H_CLEAN_STAR_RATING     : num [1:4816] 3 2 1 2 NA 2 2 1 NA 4 ...
+##  $ PatientSurveyStarRating_H_QUIET_STAR_RATING     : num [1:4816] 4 4 4 4 NA 4 4 3 NA 5 ...
+##  $ PatientSurveyStarRating_H_HSP_RATING_STAR_RATING: num [1:4816] 4 3 2 4 NA 3 2 3 NA 4 ...
+##  $ PatientSurveyStarRating_H_RECMND_STAR_RATING    : num [1:4816] 4 3 2 4 NA 4 2 3 NA 4 ...
+##  $ PatientSurveyStarRating_H_STAR_RATING           : num [1:4816] 4 3 2 4 NA 3 3 3 NA 4 ...
+##  $ HcahpsLinearMeanValue_H_COMP_1_LINEAR_SCORE     : num [1:4816] 89 90 88 91 NA 90 91 89 NA 92 ...
+##  $ HcahpsLinearMeanValue_H_COMP_2_LINEAR_SCORE     : num [1:4816] 91 92 89 95 NA 90 91 91 NA 92 ...
+##  $ HcahpsLinearMeanValue_H_COMP_3_LINEAR_SCORE     : num [1:4816] 81 75 75 88 NA 85 80 78 NA 85 ...
+##  $ HcahpsLinearMeanValue_H_COMP_5_LINEAR_SCORE     : num [1:4816] 77 76 71 77 NA 76 76 72 NA 78 ...
+##  $ HcahpsLinearMeanValue_H_COMP_6_LINEAR_SCORE     : num [1:4816] 87 86 83 87 NA 86 86 81 NA 86 ...
+##  $ HcahpsLinearMeanValue_H_COMP_7_LINEAR_SCORE     : num [1:4816] 82 79 77 82 NA 81 79 80 NA 83 ...
+##  $ HcahpsLinearMeanValue_H_CLEAN_LINEAR_SCORE      : num [1:4816] 84 80 74 80 NA 81 83 78 NA 88 ...
+##  $ HcahpsLinearMeanValue_H_QUIET_LINEAR_SCORE      : num [1:4816] 86 85 85 87 NA 84 84 82 NA 89 ...
+##  $ HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE : num [1:4816] 89 85 82 89 NA 88 83 85 NA 90 ...
+##  $ HcahpsLinearMeanValue_H_RECMND_LINEAR_SCORE     : num [1:4816] 90 83 79 88 NA 87 80 84 NA 91 ...
+##  $ EDV                                             : chr [1:4816] &quot;high&quot; &quot;high&quot; &quot;high&quot; &quot;low&quot; ...
+##  $ ED_2_Strata_1                                   : num [1:4816] NA 148 NA NA NA NA NA NA NA NA ...
+##  $ HCP_COVID_19                                    : num [1:4816] 80.7 79.8 79 57.9 81.2 88 69.8 87.3 95.9 85.3 ...
+##  $ IMM_3                                           : num [1:4816] 95 80 67 53 45 81 65 93 98 81 ...
+##  $ OP_18b                                          : num [1:4816] 215 147 177 130 118 206 160 185 102 145 ...
+##  $ OP_18c                                          : num [1:4816] 317 266 NA 216 98 124 220 220 NA 324 ...
+##  $ OP_22                                           : num [1:4816] 5 3 1 4 0 5 4 3 0 2 ...
+##  $ OP_23                                           : num [1:4816] NA NA 69 NA NA 47 NA 73 NA 35 ...
+##  $ OP_29                                           : num [1:4816] 47 96 85 23 67 100 100 NA NA 82 ...
+##  $ SAFE_USE_OF_OPIOIDS                             : num [1:4816] 14 19 17 NA NA 20 14 23 NA 17 ...
+##  $ SEP_1                                           : num [1:4816] 66 74 56 86 NA 51 92 77 NA 87 ...
+##  $ SEP_SH_3HR                                      : num [1:4816] 70 88 77 NA NA 78 94 83 NA 90 ...
+##  $ SEP_SH_6HR                                      : num [1:4816] 100 91 81 NA NA 81 83 100 NA 94 ...
+##  $ SEV_SEP_3HR                                     : num [1:4816] 79 88 78 89 NA 69 95 85 NA 94 ...
+##  $ SEV_SEP_6HR                                     : num [1:4816] 95 96 86 97 NA 91 99 97 NA 99 ...
+##  $ STK_02                                          : num [1:4816] 98 100 96 NA NA 93 NA 99 NA NA ...
+##  $ STK_05                                          : num [1:4816] NA 91 NA NA NA NA NA NA NA NA ...
+##  $ STK_06                                          : num [1:4816] NA NA 97 NA NA NA NA NA NA NA ...
+##  $ VTE_1                                           : num [1:4816] 98 NA NA NA NA 79 89 84 44 59 ...
+##  $ VTE_2                                           : num [1:4816] 99 NA 97 NA NA 88 93 94 NA NA ...
+##  $ Score_COMP_HIP_KNEE                             : num [1:4816] 2.7 2.3 4.6 NA NA 3.5 3.8 3.5 NA 4.3 ...
+##  $ Score_MORT_30_AMI                               : num [1:4816] 12 13.6 16.5 NA NA 13.2 13.8 13.1 NA NA ...
+##  $ Score_MORT_30_COPD                              : num [1:4816] 8.8 9.9 9.9 13.7 NA 10.3 NA 9.2 NA 7.8 ...
+##  $ Score_MORT_30_HF                                : num [1:4816] 8.9 14.9 12.5 12.5 NA 13.5 13.6 9.9 NA 16.9 ...
+##  $ Score_MORT_30_PN                                : num [1:4816] 18 23.3 19.5 28.5 NA 20.9 22 17.2 NA 26.1 ...
+##  $ Score_MORT_30_STK                               : num [1:4816] 14.8 15.3 17.2 NA NA 12.3 NA 13.2 NA 17.3 ...
+##  $ Score_PSI_03                                    : num [1:4816] 0.39 0.94 1.39 0.42 0.54 0.13 0.41 0.63 0.57 0.47 ...
+##  $ Score_PSI_04                                    : num [1:4816] 185 183 174 NA NA ...
+##  $ Score_PSI_06                                    : num [1:4816] 0.23 0.22 0.36 0.24 0.25 0.24 0.24 0.21 0.25 0.22 ...
+##  $ Score_PSI_08                                    : num [1:4816] 0.1 0.09 0.08 0.09 0.09 0.08 0.09 0.09 0.09 0.09 ...
+##  $ Score_PSI_09                                    : num [1:4816] 2.39 2.69 5.43 2.49 NA 1.88 2.44 3.29 2.44 2.58 ...
+##  $ Score_PSI_10                                    : num [1:4816] 1.14 1.37 1.26 1.57 NA 1.72 1.51 1.2 1.57 NA ...
+##  $ Score_PSI_11                                    : num [1:4816] 13.83 7.19 7.37 8.45 NA ...
+##  $ Score_PSI_12                                    : num [1:4816] 4.49 3.01 3.36 3.89 NA 3.04 3.32 3.67 3.56 5.63 ...
+##  $ Score_PSI_13                                    : num [1:4816] 8.05 4.46 4.37 5.19 NA 5.55 4.88 6.08 5.18 NA ...
+##  $ Score_PSI_14                                    : num [1:4816] 1.69 1.87 1.76 NA NA 1.86 2.46 2.77 NA 1.83 ...
+##  $ Score_PSI_15                                    : num [1:4816] 0.93 0.91 1.34 1.08 NA 1.18 1.04 0.84 NA 0.88 ...
+##  $ Score_PSI_90                                    : num [1:4816] 1.21 0.97 1.17 0.95 NA 0.72 0.89 1.17 0.98 1.05 ...
+##  $ FacilityName                                    : chr [1:4816] &quot;SOUTHEAST HEALTH MEDICAL CENTER&quot; &quot;MARSHALL MEDICAL CENTERS&quot; &quot;NORTH ALABAMA MEDICAL CENTER&quot; &quot;MIZELL MEMORIAL HOSPITAL&quot; ...
+##  $ State                                           : chr [1:4816] &quot;AL&quot; &quot;AL&quot; &quot;AL&quot; &quot;AL&quot; ...
+##  $ Payment_PAYM_90_HIP_KNEE                        : num [1:4816] 22212 18030 21898 NA NA ...</code></pre>
+</div>
+</div>
+</div>
+<div id="exploring-the-cleaned-data" class="section level2">
+<h2>Exploring the cleaned data</h2>
+</div>
+</div>
+<div id="segmentation-analysis" class="section level1">
+<h1>Segmentation Analysis</h1>
 </div>
 
 

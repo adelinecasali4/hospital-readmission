@@ -84,8 +84,8 @@ A potential pitfall of our analysis plan is data quality and completeness. The d
 
 ## Data loading and preprocessing  
 
-#### Loading the Data (AC)  
-```{r}
+### Loading the Data (AC)  
+```{r, message=FALSE, warning=FALSE}
 # Set the directory for the data files
 filepath <- "/Users/adelinecasali/Desktop/hospitals_current_data/" 
 
@@ -120,9 +120,9 @@ files %>%
   )
 ```
 
-#### Exploring and Preprocessing the FY_2024_Hospital_Readmissions_Reduction_Program dataset (AC)  
+### Exploring and Preprocessing the FY_2024_Hospital_Readmissions_Reduction_Program dataset (AC)  
 
-##### Viewing and checking for missing values  
+#### Viewing and checking for missing values  
 ```{r}
 # Display first 10 rows of FY_2024_Hospital_Readmissions_Reduction_Program 
 head(FY_2024_Hospital_Readmissions_Reduction_Program,10)
@@ -136,7 +136,7 @@ miss_vals <- sapply(num_vars, function(x) sum(is.na(x)))
 print(miss_vals)
 ```
 
-##### Replacing values with NA and "Too Few to Report" values with "5"  
+#### Replacing values with NA and "Too Few to Report" values with "5"  
 ```{r}
 # Use the function "replace_with_na_all()" to replace aberrant values with NA
 FY_2024_Hospital_Readmissions_Reduction_Program <- replace_with_na_all(FY_2024_Hospital_Readmissions_Reduction_Program, condition = ~ .x == "N/A")
@@ -160,7 +160,7 @@ FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions[fives] <- s
 head(FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions,20)
 ```
 
-##### Converting columns to numeric  
+#### Converting columns to numeric  
 ```{r}
 # Selecting the columns to convert
 columns_to_convert <- c("NumberOfDischarges", "ExcessReadmissionRatio", "PredictedReadmissionRate", "ExpectedReadmissionRate", "NumberOfReadmissions")
@@ -173,14 +173,14 @@ FY_2024_Hospital_Readmissions_Reduction_Program <- FY_2024_Hospital_Readmissions
 str(FY_2024_Hospital_Readmissions_Reduction_Program)
 ```
 
-##### Removing excess text from measure names
+#### Removing excess text from measure names
 ```{r}
 FY_2024_Hospital_Readmissions_Reduction_Program <-  FY_2024_Hospital_Readmissions_Reduction_Program %>%
   mutate(MeasureName = gsub("READM-30-", "", MeasureName)) %>% 
   mutate(MeasureName = gsub("-HRRP", "", MeasureName)) 
 ```
 
-##### Creating a dictionary for medical conditions  
+#### Creating a dictionary for medical conditions  
 ```{r}
 dict <- tribble(
   ~Acronym, ~Definition,
@@ -199,7 +199,7 @@ dict %>%
   )
 ```
 
-##### Pivoting the data wider  
+#### Pivoting the data wider  
 ```{r}
 readmissionsClean <- FY_2024_Hospital_Readmissions_Reduction_Program %>%
   pivot_wider(
@@ -213,15 +213,15 @@ dim(readmissionsClean)
 head(readmissionsClean)
 ```
 
-##### Filtering for only hip/knee conditions
+#### Filtering for only hip/knee conditions
 ```{r}
 readmissionsClean <- readmissionsClean %>%
   select(FacilityName, FacilityId, State, matches("HIP-KNEE$"))
 ```
 
-#### Exploring and Preprocessing the HCAHPS dataset (AC)  
+### Exploring and Preprocessing the HCAHPS dataset (AC)  
 
-##### Viewing and checking for missing values  
+#### Viewing and checking for missing values  
 ```{r}
 # Display first 10 rows of HCAHPS 
 head(HCAHPS,10)
@@ -235,7 +235,7 @@ miss_vals <- sapply(num_vars, function(x) sum(is.na(x)))
 print(miss_vals)
 ```
 
-##### Removing footnote columns and replacing NA values  
+#### Removing footnote columns and replacing NA values  
 ```{r}
 # Removing all footnote columns
 HCAHPS <- HCAHPS %>%
@@ -258,7 +258,7 @@ HCAHPS <- as.data.frame(sapply(HCAHPS, function(x) {
 }))
 ```
 
-##### Creating a dictionary for HCAHPS questions
+#### Creating a dictionary for HCAHPS questions
 ```{r}
 dictHCAHPS <- tribble(
   ~`Measure ID`, ~`Measure Name`,
@@ -322,7 +322,7 @@ dictHCAHPS %>%
 ```
 
 
-##### Pivoting the data wider  
+#### Pivoting the data wider  
 ```{r}
 HCAHPSClean <- HCAHPS %>%
   pivot_wider(
@@ -336,9 +336,9 @@ dim(HCAHPSClean)
 head(HCAHPSClean)
 ```
 
-#### Exploring and Preprocessing the Timely_and_Effective_Care dataset (AC)  
+### Exploring and Preprocessing the Timely_and_Effective_Care dataset (AC)  
 
-##### Viewing and checking for missing values  
+#### Viewing and checking for missing values  
 ```{r}
 # Display first 10 rows of Timely_and_Effective_Care
 head(Timely_and_Effective_Care,10)
@@ -352,7 +352,7 @@ miss_vals <- sapply(num_vars, function(x) sum(is.na(x)))
 print(miss_vals)
 ```
 
-##### Replacing NA values  
+#### Replacing NA values  
 ```{r}
 # Replacing all "Not Applicable" with NA
 Timely_and_Effective_Care <- as.data.frame(sapply(Timely_and_Effective_Care, function(x) {
@@ -371,7 +371,7 @@ Timely_and_Effective_Care <- as.data.frame(sapply(Timely_and_Effective_Care, fun
 }))
 ```
 
-##### Creating a dictionary Timely and Effective Care measure names
+#### Creating a dictionary Timely and Effective Care measure names
 ```{r}
 dictCare <- tribble(
   ~`Measure ID`, ~`Measure Name`,
@@ -406,7 +406,7 @@ dictCare %>%
     kable_styling(bootstrap_options = c("hover", "full_width" = F))
 ```
 
-##### Pivoting the data wider  
+#### Pivoting the data wider  
 ```{r}
 careClean <- Timely_and_Effective_Care %>%
   pivot_wider(
@@ -420,9 +420,9 @@ dim(careClean)
 head(careClean)
 ```
 
-#### Exploring and Preprocessing the Complications_and_Deaths dataset (AC)  
+### Exploring and Preprocessing the Complications_and_Deaths dataset (AC)  
 
-##### Viewing and checking for missing values  
+#### Viewing and checking for missing values  
 ```{r}
 # Display first 10 rows of Complications_and_Deaths
 head(Complications_and_Deaths,10)
@@ -436,7 +436,7 @@ miss_vals <- sapply(num_vars, function(x) sum(is.na(x)))
 print(miss_vals)
 ```
 
-##### Replacing NA values  
+#### Replacing NA values  
 ```{r}
 # Replacing all "Not Applicable" with NA
 Complications_and_Deaths <- as.data.frame(sapply(Complications_and_Deaths, function(x) {
@@ -455,7 +455,7 @@ Complications_and_Deaths <- as.data.frame(sapply(Complications_and_Deaths, funct
 }))
 ```
 
-##### Creating a dictionary for Complications and Deaths measure names
+#### Creating a dictionary for Complications and Deaths measure names
 ```{r}
 dictDeaths <- tribble(
   ~`Measure ID`, ~`Measure Name`,
@@ -487,7 +487,7 @@ dictDeaths %>%
     kable_styling(bootstrap_options = c("hover", "full_width" = F))
 ```
 
-##### Pivoting the data wider  
+#### Pivoting the data wider  
 ```{r}
 deathsClean <- Complications_and_Deaths %>%
   pivot_wider(
@@ -501,9 +501,9 @@ dim(deathsClean)
 head(deathsClean)
 ```
 
-#### Exploring and Preprocessing the Payment_and_Value_of_Care dataset (AC)  
+### Exploring and Preprocessing the Payment_and_Value_of_Care dataset (AC)  
 
-##### Viewing and checking for missing values  
+#### Viewing and checking for missing values  
 ```{r}
 # Display first 10 rows of Payment_and_Value_of_Care
 head(Payment_and_Value_of_Care,10)
@@ -517,7 +517,7 @@ miss_vals <- sapply(num_vars, function(x) sum(is.na(x)))
 print(miss_vals)
 ```
 
-##### Replacing NA values  
+#### Replacing NA values  
 ```{r}
 # Replacing all "Not Applicable" with NA
 Payment_and_Value_of_Care <- as.data.frame(sapply(Payment_and_Value_of_Care, function(x) {
@@ -536,7 +536,7 @@ Payment_and_Value_of_Care <- as.data.frame(sapply(Payment_and_Value_of_Care, fun
 }))
 ```
 
-##### Creating a dictionary for Payment and Value of Care measure names
+#### Creating a dictionary for Payment and Value of Care measure names
 ```{r}
 dictPayment <- tribble(
   ~`Measure ID`, ~`Measure Name`,
@@ -553,7 +553,7 @@ dictPayment %>%
     kable_styling(bootstrap_options = c("hover", "full_width" = F))
 ```
 
-##### Pivoting the data wider  
+#### Pivoting the data wider  
 ```{r}
 paymentClean <- Payment_and_Value_of_Care %>%
   pivot_wider(
@@ -567,15 +567,15 @@ dim(paymentClean)
 head(paymentClean)
 ```
 
-##### Selecting only Hip-Knee related  
+#### Selecting only Hip-Knee related  
 ```{r}
 paymentClean <- paymentClean %>%
   select(FacilityName, FacilityId, State, matches("HIP_KNEE$"))
 ```
 
-#### Joining and cleaning the datasets (AC)  
+### Joining and cleaning the datasets (AC)  
 
-##### Joining the datasets based on FacilityId
+#### Joining the datasets based on FacilityId
 ```{r}
 HipKneeClean <- readmissionsClean %>%
   full_join(HCAHPSClean, by = "FacilityId") %>%
@@ -586,15 +586,15 @@ HipKneeClean <- readmissionsClean %>%
 head(HipKneeClean)
 ```
 
-##### Removing redundant columns  
+#### Removing redundant columns  
 ```{r}
 # Removing duplicate columns
 HipKneeClean <- HipKneeClean %>%
   select(-matches("\\.(x|y|z|w|v)$"))
 ```
 
-#### Checking for NA Values
-```{r}
+#### Checking for NA Values  
+```{r, results='hide'}
 # Checking the dimensions
 dim(HipKneeClean)
 
@@ -605,21 +605,84 @@ na_counts <- sapply(HipKneeClean, function(x) sum(is.na(x)))
 print(na_counts)
 ```
 
-##### Removing columns with more than 50% NA values
-```{r}
+#### Removing columns with more than 80% NA values
+```{r, results='hide'}
 # Calculate the percentage of NA values for each column
 na_percentage <- sapply(HipKneeClean, function(x) mean(is.na(x)))
 
-# Remove columns where more than 50% of the values are NA
-HipKneeClean <- HipKneeClean[, na_percentage <= 0.5]
+# Remove columns where more than 80% of the values are NA
+HipKneeClean <- HipKneeClean[, na_percentage <= 0.8]
 
 # Count NA values in each column
 na_counts <- sapply(HipKneeClean, function(x) sum(is.na(x)))
 
 # View the NA counts
 print(na_counts)
+
+# Check the dimensions
+dim(HipKneeClean)
+```
+
+#### Removing answer percent and survey response percent columns
+```{r}
+# Remove columns containing 'AnswerPercent' or 'SurveyResponseRate'
+HipKneeClean <- HipKneeClean %>%
+  select(-matches("AnswerPercent|SurveyResponseRate"))
+
+# Check the dimensions
+dim(HipKneeClean)
+```
+
+#### Removing compared to national columns
+```{r}
+# Remove columns containing 'ComparedToNational' and 'PaymentCategory'
+HipKneeClean <- HipKneeClean %>%
+  select(-matches("ComparedToNational|PaymentCategory"))
+
+# Check the dimensions
+dim(HipKneeClean)
+```
+
+#### Checking data structure
+```{r}
+str(HipKneeClean)
+
+# Convert columns to numeric
+HipKneeClean <- HipKneeClean %>%
+  mutate_at(vars(starts_with("PatientSurveyStarRating_"), 
+                 starts_with("HcahpsLinearMeanValue_"), 
+                 starts_with("Score_"),
+                 starts_with("ED_"),
+                 starts_with("IMM_"),
+                 starts_with("OP_"),
+                 starts_with("SEP_"),
+                 starts_with("SEV_"),
+                 starts_with("STK_"),
+                 starts_with("VTE_"),
+                 starts_with("SAFE_"),
+                 starts_with("HCP_")),
+            ~ as.numeric(as.character(.)))
+
+# View the structure
+str(HipKneeClean)
+```
+
+#### Fixing the payment column
+```{r}
+# Remove $ and , and convert to numeric
+HipKneeClean <- HipKneeClean %>%
+  mutate_at(vars(starts_with("Payment_")), 
+            ~ as.numeric(gsub("[\\$,]", "", .)))
+
+# Checking the structure
+str(HipKneeClean)
 ```
 
 
-## Segmentation Analysis
+## Exploring the cleaned data  
+
+
+
+
+# Segmentation Analysis
 
