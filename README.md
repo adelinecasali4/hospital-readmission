@@ -1,10 +1,10 @@
-# Identifying Risk Factors and Preferred Hospitals for Hip/Knee Replacements: An Analysis of 2023 Hospital Readmission Reduction Program Data  
+# Identifying Risk Factors and Preferred Hospitals for Hip/Knee Replacements: An Analysis of 2019-2022 Hospital Readmission Reduction Program Data  
 
 ## Project Overview  
 Since 2012, the Centers for Medicare and Medicaid Services (CMS) have implemented the Hospital Readmission Reduction Program (HRRP) to track and reduce unnecessary hospital readmissions through financial penalties. This project aims to analyze the 2024 HRRP data to identify preferred and non-preferred hospitals for hip and knee replacements for a health insurance company, as well as to determine the risk factors associated with higher readmission rates for these procedures.  
 
 ## Background and Question
-Since 2012, the Centers for Medicare and Medicaid Services have implemented the Hospital Readmission Reduction Program (HRRP). This program tracks hospital readmission rates and incentivizes hospitals to reduce unnecessary readmissions through financial penalties. Using the 2023 readmission data from the HRRP, this analysis aims to identify the preferred and non-preferred hospitals for hip and knee replacements for a health insurance company. Furthermore, it will examine the risk factors associated with higher readmission rates for these procedures.  
+Since 2012, the Centers for Medicare and Medicaid Services have implemented the Hospital Readmission Reduction Program (HRRP). This program tracks hospital readmission rates and incentivizes hospitals to reduce unnecessary readmissions through financial penalties. Using the 2019-2022 readmission data from the HRRP, this analysis aims to identify the preferred and non-preferred hospitals for hip and knee replacements for a health insurance company. Furthermore, it will examine the risk factors associated with higher readmission rates for these procedures.  
 
 ##### Question:  
 What risk factors are associated with hospital readmission rates for hip/knee replacements?  
@@ -22,7 +22,7 @@ Previous analyses have used these same or similar datasets with Logistic Regress
 Hospitals with better Hospital Consumer Assessment of Healthcare Providers and Systems (HCAHPS) scores will have lower readmission rates for hip/knee replacements because higher patient satisfaction often correlates with better overall care quality and patient outcomes, including reduced complications and better post-discharge support (Edwards et al., 2015).  
 
 ## Data and Analysis
-We will be using the datasets from the Centers for Medicare and Medicaid Services (Centers for Medicare & Medicaid Services, 2024). Our target variable will be the readmission rate after hip/knee surgery, using the 2023 data as the training data and updated 2024 data as the test data. We will utilize predictors from the HCAHPS (Hospital Consumer Assessment of Healthcare Providers and Systems) dataset as well as Timely and Effective Care, containing information on average wait times and vaccination compliance, Complications and Deaths, containing information about the frequency of deaths and complications for procedures, and Payment and Spending metrics, which includes the costs associated with procedures. 
+We will be using the datasets from the Centers for Medicare and Medicaid Services (Centers for Medicare & Medicaid Services, 2024). Our target variable will be the readmission rate after hip/knee surgery, using the 2019-2022 data as the training data and updated 2024 data as the test data. We will utilize predictors from the HCAHPS (Hospital Consumer Assessment of Healthcare Providers and Systems) dataset as well as Timely and Effective Care, containing information on average wait times and vaccination compliance, Complications and Deaths, containing information about the frequency of deaths and complications for procedures, and Payment and Spending metrics, which includes the costs associated with procedures. 
 
 ### Analysis Plan:
 1.	Data Preprocessing:  
