@@ -1,16 +1,625 @@
 ---
 title: 'Identifying Risk Factors and Preferred Hospitals for Hip/Knee Replacements:
-  An Analysis of 2024 Hospital Readmission Reduction Program Data'
+  An Analysis of 2023 Hospital Readmission Reduction Program Data'
 author: "Adeline Casali and Scott Eugley"
 date: "2024-07-09"
-output: html_document
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    fig_crop: no
 ---
 
-# Background  
-Since 2012, the Centers for Medicare and Medicaid Services have implemented the Hospital Readmission Reduction Program (HRRP). This program tracks hospital readmission rates and incentivizes hospitals to reduce unnecessary readmissions through financial penalties. Using the 2024 readmission data from the HRRP, this analysis aims to identify the preferred and non-preferred hospitals for hip and knee replacements for a health insurance company. Furthermore, it will examine the risk factors associated with higher readmission rates for these procedures.  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      cache = FALSE,    ### Turned off so students don't have issues with GitHub
+                      cache.comments = TRUE,
+                      size = 13)
+```
 
-# Question  
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# clean, set up, and load
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
+rm(list = ls(all = TRUE))
+
+pacman::p_load(tidyverse, 
+               ggplot2, 
+               kableExtra, 
+               lubridate, 
+               caret,
+               janitor,
+               naniar, 
+               glmnet) 
+```
+
+# Background and Question
+Since 2012, the Centers for Medicare and Medicaid Services have implemented the Hospital Readmission Reduction Program (HRRP). This program tracks hospital readmission rates and incentivizes hospitals to reduce unnecessary readmissions through financial penalties. Using the 2023 readmission data from the HRRP, this analysis aims to identify the preferred and non-preferred hospitals for hip and knee replacements for a health insurance company. Furthermore, it will examine the risk factors associated with higher readmission rates for these procedures.  
+
+##### Question:  
 What risk factors are associated with hospital readmission rates for hip/knee replacements?  
 
-# Hypothesis and Prediction  
-Hospitals with better Hospital Consumer Assessment of Healthcare Providers and Systems (HCAHPS) scores will have lower readmission rates for hip/knee replacements because higher patient satisfaction often correlates with better overall care quality and patient outcomes, including reduced complications and better post-discharge support.  
+##### Motivation:  
+Understanding these risk factors can help health insurance companies guide patients towards hospitals with better outcomes, thereby improving patient outcomes and reducing costs associated with readmissions.  
+
+##### Need:  
+The insights from this analysis can be used to improve hospital performance, enhance patient care, and reduce costs. As of 2019, the average cost of readmission after hip/knee surgery was $8,588, and avoiding that cost would be highly beneficial for health insurance companies and consumers alike (Phillips et al., 2019).  
+
+##### Novelty:  
+Previous analyses have used these same or similar datasets with Logistic Regression and Random Forest models to identify the most important risk factors as they pertain to hospital readmission rates for hip/knee replacements. We will be trying to improve on this type of analysis by improving the performance of the models using various techniques. Prior analyses have implemented Random Forest models to extract important risk factors, but no prior analyses have used Random Forest to classify hospitals as preferred or non-preferred for hip/knee replacement, based on the important risk factors.  
+
+##### Hypothesis:  
+Hospitals with better Hospital Consumer Assessment of Healthcare Providers and Systems (HCAHPS) scores will have lower readmission rates for hip/knee replacements because higher patient satisfaction often correlates with better overall care quality and patient outcomes, including reduced complications and better post-discharge support (Edwards et al., 2015).  
+
+# Data and Analysis
+We will be using the datasets from the Centers for Medicare and Medicaid Services (Centers for Medicare & Medicaid Services, 2024). Our target variable will be the readmission rate after hip/knee surgery, using the 2023 data as the training data and updated 2024 data as the test data. We will utilize predictors from the HCAHPS (Hospital Consumer Assessment of Healthcare Providers and Systems) dataset as well as Timely and Effective Care, containing information on average wait times and vaccination compliance, Complications and Deaths, containing information about the frequency of deaths and complications for procedures, and Payment and Spending metrics, which includes the costs associated with procedures. 
+
+### Analysis Plan:
+1.	Data Preprocessing:  
+o	Handle missing values, outliers, and inconsistencies in the dataset.  
+o	Exploratory data analysis will be performed.  
+2.	Model Selection:  
+o	Random Forest: This model will be used to determine the most significant risk factors associated with hospital readmission, post hip/knee replacement surgery. The model will then be used in a binary classification task, which will categorize hospitals as either “preferred” or “non-preferred”, based on the national average for hospital readmission post hip/knee surgery.  
+o	Elastic Net: While prior analyses have used coefficients from Logistic Regression modeling to determine significant risk factors, this analysis will leverage L1 and L2 regularization via an Elastic Net model.   
+o	Neural Network: After using Elastic Net and Random Forest to find significant risk factors, these risk factors will be utilized in a neural network model and used to classify hospitals as either “preferred” or “non-preferred”. Classification ability of the neural network model will then be compared with the classification ability of the Random Forest model.   
+3.	Feature Importance Analysis:  
+o	Identify which predictors significantly influence hospital readmission rate, post hip/knee replacement surgery.  
+o	Linear regression analysis (Elastic Net) significant risk factors will be compared to tree-based analysis (Random Forest) significant risk factors for overlap.  
+4.	Model Validation:  
+o	Validate the model using cross-validation techniques (k-fold, nested) to ensure robustness and generalizability.  
+o	Hyperparameter tuning will be performed. Assessment of the model’s performance will be based on accuracy, AUC, and ROC metrics.  
+o	The 2024 data will be used as the test set for this analysis.  
+
+### Assessment:
+##### Successful Analysis:  
+We will consider our analysis successful if we can identify clear risk factors associated with hospital readmission rates and accurately classify hospitals as preferred or non-preferred.  
+
+##### Hypothesis Support:  
+Our hypothesis will be supported if hospitals with better HCAHPS scores demonstrate statistically significantly lower readmission rates for hip/knee replacements.  
+
+##### Pitfalls:  
+A potential pitfall of our analysis plan is data quality and completeness. The dataset does contain missing values, and it will need to be preprocessed to handle these missing values, outliers, and inconsistencies. Another potential pitfall is not having adequate computing power to implement deep learning with the size of our dataset. Lastly, a pitfall that we need to keep an eye out for is overfitting. We will know we have overfitting if the train set far outperforms the test set, in terms of model accuracy. 
+
+# Exploratory Data Analysis  
+
+## Data loading and preprocessing  
+
+#### Loading the Data (AC)  
+```{r}
+# Set the directory for the data files
+filepath <- "/Users/adelinecasali/Desktop/hospitals_current_data/" 
+
+# List the files in the directory that have "Hospital.csv"
+files <- list.files(path = filepath, pattern = "Hospital.csv")
+
+# Iterate through each file in the list
+for(f in 1:length(files)) {
+  
+# Read the CSV, clean column names to upper camel case, and store in "dat"
+    dat <- clean_names(read_csv(paste0(filepath, files[f]),
+                                show_col_types = FALSE), 
+                       case = "upper_camel")
+    
+# Remove ".Hospital.csv" part of the file names to create variable name
+    filename <- gsub(".Hospital\\.csv", "", files[f])
+    
+# Assign data to a variable with the above created name
+    assign(filename, dat)
+}
+# Create a df of file names without ".Hospital.csv"
+files <- gsub(".Hospital\\.csv", "", files) %>% data.frame()
+
+# Set column name of the df to "File Name"
+names(files) <- "File Name"
+
+files %>% 
+  kable(
+    format = "html",
+    caption = "Table 1. List of hospital-level data files.") %>%
+    kable_styling(bootstrap_options = c("striped", full_width = F)
+  )
+```
+
+#### Exploring and Preprocessing the FY_2024_Hospital_Readmissions_Reduction_Program dataset (AC)  
+
+##### Viewing and checking for missing values  
+```{r}
+# Display first 10 rows of FY_2024_Hospital_Readmissions_Reduction_Program 
+head(FY_2024_Hospital_Readmissions_Reduction_Program,10)
+
+# Filter dataset to include numeric columns only
+num_vars <- FY_2024_Hospital_Readmissions_Reduction_Program %>%
+  select_if(is.numeric)
+
+# Check for missing values
+miss_vals <- sapply(num_vars, function(x) sum(is.na(x)))
+print(miss_vals)
+```
+
+##### Replacing values with NA and "Too Few to Report" values with "5"  
+```{r}
+# Use the function "replace_with_na_all()" to replace aberrant values with NA
+FY_2024_Hospital_Readmissions_Reduction_Program <- replace_with_na_all(FY_2024_Hospital_Readmissions_Reduction_Program, condition = ~ .x == "N/A")
+
+# Replace "Too Few to Report" values with "5" in using gsub
+FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions <- gsub("Too Few to Report", "5", FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions)
+
+# Check first 10 rows to confirm that it worked
+head(FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions, 10)
+
+# NumberOfReadmissions had to be converted to numeric before applying integers
+FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions <- as.numeric(FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions)
+
+# Find all values of "5" in NumberOfReadmissions
+fives <- which(FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions == 5)
+
+# Replace values of "5" with random integers from 1 - 10
+FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions[fives] <- sample(1:10, length(fives), replace = TRUE)
+
+# Check the first 20 rows to see if this was applied correctly
+head(FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions,20)
+```
+
+##### Converting columns to numeric  
+```{r}
+# Selecting the columns to convert
+columns_to_convert <- c("NumberOfDischarges", "ExcessReadmissionRatio", "PredictedReadmissionRate", "ExpectedReadmissionRate", "NumberOfReadmissions")
+
+# Use mutate_at to convert the specified columns to numeric
+FY_2024_Hospital_Readmissions_Reduction_Program <- FY_2024_Hospital_Readmissions_Reduction_Program %>%
+  mutate_at(vars(one_of(columns_to_convert)), as.numeric)
+
+# Print the structure of the dataframe to check the changes
+str(FY_2024_Hospital_Readmissions_Reduction_Program)
+```
+
+##### Removing excess text from measure names
+```{r}
+FY_2024_Hospital_Readmissions_Reduction_Program <-  FY_2024_Hospital_Readmissions_Reduction_Program %>%
+  mutate(MeasureName = gsub("READM-30-", "", MeasureName)) %>% 
+  mutate(MeasureName = gsub("-HRRP", "", MeasureName)) 
+```
+
+##### Creating a dictionary for medical conditions  
+```{r}
+dict <- tribble(
+  ~Acronym, ~Definition,
+  "HIP-KNEE", "Total Hip/Knee Arthroplasty",
+  "HF", "Heart Failure",
+  "COPD", "Chronic Obstructive Pulmonary Disease",
+  "AMI", "Acute Myocardial Infarction",
+  "CABG", "Coronary Artery Bypass Graft",
+  "PN", "Pneumonia"
+)
+dict %>% 
+  kable(
+    format = "html",
+    caption = "Table 2. Acronyms of medical conditions for which hospital readmissions are tracked.") %>%
+    kable_styling(bootstrap_options = c("hover", full_width = F)
+  )
+```
+
+##### Pivoting the data wider  
+```{r}
+readmissionsClean <- FY_2024_Hospital_Readmissions_Reduction_Program %>%
+  pivot_wider(
+    names_from = MeasureName, 
+    values_from = c(NumberOfDischarges, ExcessReadmissionRatio, PredictedReadmissionRate, ExpectedReadmissionRate, NumberOfReadmissions), 
+    id_cols = c(FacilityName, FacilityId, State, StartDate, EndDate)
+  )
+
+# Check the new dataframe
+dim(readmissionsClean)
+head(readmissionsClean)
+```
+
+##### Filtering for only hip/knee conditions
+```{r}
+readmissionsClean <- readmissionsClean %>%
+  select(FacilityName, FacilityId, State, matches("HIP-KNEE$"))
+```
+
+#### Exploring and Preprocessing the HCAHPS dataset (AC)  
+
+##### Viewing and checking for missing values  
+```{r}
+# Display first 10 rows of HCAHPS 
+head(HCAHPS,10)
+
+# Filter dataset to include numeric columns only
+num_vars <- HCAHPS %>%
+  select_if(is.numeric)
+
+# Check for missing values
+miss_vals <- sapply(num_vars, function(x) sum(is.na(x)))
+print(miss_vals)
+```
+
+##### Removing footnote columns and replacing NA values  
+```{r}
+# Removing all footnote columns
+HCAHPS <- HCAHPS %>%
+  select(-ends_with("footnote"))
+
+# Replacing all "Not Applicable" with NA
+HCAHPS <- as.data.frame(sapply(HCAHPS, function(x) {
+  if (is.character(x)) {
+    x[x == "Not Applicable"] <- NA
+  }
+  return(x)
+}))
+
+# Replacing all "Not Available" with NA
+HCAHPS <- as.data.frame(sapply(HCAHPS, function(x) {
+  if (is.character(x)) {
+    x[x == "Not Available"] <- NA
+  }
+  return(x)
+}))
+```
+
+##### Creating a dictionary for HCAHPS questions
+```{r}
+dictHCAHPS <- tribble(
+  ~`Measure ID`, ~`Measure Name`,
+  "H-CLEAN-HSP-A-P", "Patients who reported that their room and bathroom were 'Always' clean",
+  "H-CLEAN-HSP-SN-P", "Patients who reported that their room and bathroom were 'Sometimes' or 'Never' clean",
+  "H-CLEAN-HSP-U-P", "Patients who reported that their room and bathroom were 'Usually' clean",
+  "H-CLEAN-HSP-STAR-RATING", "Cleanliness - star rating",
+  "H_CLEAN_LINEAR_SCORE", "Cleanliness - linear mean score",
+  "H-COMP-1-A-P", "Patients who reported that their nurses 'Always' communicated well",
+  "H-COMP-1-SN-P", "Patients who reported that their nurses 'Sometimes' or 'Never' communicated well",
+  "H-COMP-1-U-P", "Patients who reported that their nurses 'Usually' communicated well",
+  "H-COMP-1-STAR-RATING", "Nurse communication - star rating",
+  "H_COMP_1_LINEAR_SCORE", "Nurse communication - linear mean score",
+  "H-COMP-2-A-P", "Patients who reported that their doctors 'Always' communicated well",
+  "H-COMP-2-SN-P", "Patients who reported that their doctors 'Sometimes' or 'Never' communicated well",
+  "H-COMP-2-U-P", "Patients who reported that their doctors 'Usually' communicated well",
+  "H-COMP-2-STAR-RATING", "Doctor communication - star rating",
+  "H_COMP_2_LINEAR_SCORE", "Doctor communication - linear mean score",
+  "H-COMP-3-A-P", "Patients who reported that they 'Always' received help as soon as they wanted",
+  "H-COMP-3-SN-P", "Patients who reported that they 'Sometimes' or 'Never' received help as soon as they wanted",
+  "H-COMP-3-U-P", "Patients who reported that they 'Usually' received help as soon as they wanted",
+  "H-COMP-3-STAR-RATING", "Staff responsiveness - star rating",
+  "H_COMP_3_LINEAR_SCORE", "Staff responsiveness - linear mean score",
+  "H-COMP-5-A-P", "Patients who reported that staff 'Always' explained about medicines before giving it to them",
+  "H-COMP-5-SN-P", "Patients who reported that staff 'Sometimes' or 'Never' explained about medicines before giving it to them",
+  "H-COMP-5-U-P", "Patients who reported that staff 'Usually' explained about medicines before giving it to them",
+  "H-COMP-5-STAR-RATING", "Communication about medicine - star rating",
+  "H_COMP_5_LINEAR_SCORE", "Communication about medicines - linear mean score",
+  "H-COMP-6-N-P", "Patients who reported that NO, they were not given information about what to do during their recovery at home",
+  "H-COMP-6-Y-P", "Patients who reported that YES, they were given information about what to do during their recovery at home",
+  "H-COMP-6-STAR-RATING", "Discharge information - star rating",
+  "H_COMP_6_LINEAR_SCORE", "Discharge information - linear mean score",
+  "H-COMP-7-A", "Patients who 'Agree' they understood their care when they left the hospital",
+  "H-COMP-7-D-SD", "Patients who 'Disagree' or 'Strongly Disagree' that they understood their care when they left the hospital",
+  "H-COMP-7-SA", "Patients who 'Strongly Agree' that they understood their care when they left the hospital",
+  "H-COMP-7-STAR-RATING", "Care transition - star rating",
+  "H_COMP_7_LINEAR_SCORE", "Care transition - linear mean score",
+  "H-HSP-RATING-0-6", "Patients who gave their hospital a rating of 6 or lower on a scale from 0 (lowest) to 10 (highest)",
+  "H-HSP-RATING-7-8", "Patients who gave their hospital a rating of 7 or 8 on a scale from 0 (lowest) to 10 (highest)",
+  "H-HSP-RATING-9-10", "Patients who gave their hospital a rating of 9 or 10 on a scale from 0 (lowest) to 10 (highest)",
+  "H-HSP-RATING-STAR-RATING", "Overall rating of hospital - star rating",
+  "H_HSP_RATING_LINEAR_SCORE", "Overall hospital rating - linear mean score",
+  "H-QUIET-HSP-A-P", "Patients who reported that the area around their room was 'Always' quiet at night",
+  "H-QUIET-HSP-SN-P", "Patients who reported that the area around their room was 'Sometimes' or 'Never' quiet at night",
+  "H-QUIET-HSP-U-P", "Patients who reported that the area around their room was 'Usually' quiet at night",
+  "H-QUIET-HSP-STAR-RATING", "Quietness - star rating",
+  "H_QUIET_LINEAR_SCORE", "Quietness - linear mean score",
+  "H-RECMND-DN", "Patients who reported NO, they would probably not or definitely not recommend the hospital",
+  "H-RECMND-DY", "Patients who reported YES, they would definitely recommend the hospital",
+  "H-RECMND-PY", "Patients who reported YES, they would probably recommend the hospital",
+  "H-RECMND-STAR-RATING", "Recommend hospital - star rating",
+  "H_RECMND_LINEAR_SCORE", "Recommend hospital - linear mean score",
+  "H-STAR-RATING", "Summary star rating"
+)
+
+dictHCAHPS %>% 
+  kable(
+    format = "html",
+    caption = "Table 3. Measure IDs and Measure Names from HCAHPS") %>%
+    kable_styling(bootstrap_options = c("hover", "full_width" = F))
+```
+
+
+##### Pivoting the data wider  
+```{r}
+HCAHPSClean <- HCAHPS %>%
+  pivot_wider(
+    names_from = HcahpsMeasureId, 
+    values_from = c(PatientSurveyStarRating, HcahpsAnswerPercent, HcahpsLinearMeanValue, SurveyResponseRatePercent), 
+    id_cols = c(FacilityName, FacilityId, State)
+  )
+
+# Check the new dataframe
+dim(HCAHPSClean)
+head(HCAHPSClean)
+```
+
+#### Exploring and Preprocessing the Timely_and_Effective_Care dataset (AC)  
+
+##### Viewing and checking for missing values  
+```{r}
+# Display first 10 rows of Timely_and_Effective_Care
+head(Timely_and_Effective_Care,10)
+
+# Filter dataset to include numeric columns only
+num_vars <- Timely_and_Effective_Care %>%
+  select_if(is.numeric)
+
+# Check for missing values
+miss_vals <- sapply(num_vars, function(x) sum(is.na(x)))
+print(miss_vals)
+```
+
+##### Replacing NA values  
+```{r}
+# Replacing all "Not Applicable" with NA
+Timely_and_Effective_Care <- as.data.frame(sapply(Timely_and_Effective_Care, function(x) {
+  if (is.character(x)) {
+    x[x == "Not Applicable"] <- NA
+  }
+  return(x)
+}))
+
+# Replacing all "Not Available" with NA
+Timely_and_Effective_Care <- as.data.frame(sapply(Timely_and_Effective_Care, function(x) {
+  if (is.character(x)) {
+    x[x == "Not Available"] <- NA
+  }
+  return(x)
+}))
+```
+
+##### Creating a dictionary Timely and Effective Care measure names
+```{r}
+dictCare <- tribble(
+  ~`Measure ID`, ~`Measure Name`,
+  "EDV", "Emergency department volume (alternate Measure ID: EDV-1)",
+  "ED-2", "Average (median) admit decision time to time of departure from the emergency department for emergency department patients admitted to inpatient status",
+  "IMM-3", "Healthcare workers given influenza vaccination",
+  "HCP COVID-19", "COVID-19 Vaccination Coverage Among HCP",
+  "OP-18b", "Average (median) time patients spent in the emergency department before leaving from the visit (alternate Measure ID: OP-18)",
+  "OP-18c", "Average time patients spent in the emergency department before being sent home (Median Time from ED Arrival to ED Departure for Discharged ED Patients – Psychiatric/Mental Health Patients) *This measure is only found in the downloadable database, it is not displayed on Hospital Care Compare",
+  "OP-22", "Percentage of patients who left the emergency department before being seen",
+  "OP-23", "Percentage of patients who came to the emergency department with stroke symptoms who received brain scan results within 45 minutes of arrival",
+  "OP-29", "Percentage of patients receiving appropriate recommendation for follow-up screening colonoscopy",
+  "OP-31", "Percentage of patients who had cataract surgery and had improvement in visual function within 90 days following the surgery",
+  "SEP-1", "Severe Sepsis and Septic Shock",
+  "SEP-SH-3HR", "Septic Shock 3 Hour",
+  "SEP-SH-6HR", "Septic Shock 6 Hour",
+  "SEV-SEP-3HR", "Severe Sepsis 3 Hour",
+  "SEV-SEP-6HR", "Severe Sepsis 6 Hour",
+  "STK-02", "Percentage of ischemic stroke patients prescribed or continuing to take antithrombotic therapy at hospital discharge",
+  "STK-03", "Percentage of ischemic stroke patients with atrial fibrillation/flutter who are prescribed or continuing to take anticoagulation therapy at hospital discharge",
+  "STK-05", "Percentage of ischemic stroke patients administered antithrombotic therapy by the end of hospital day 2",
+  "STK-06", "Percentage of ischemic stroke patients who are prescribed or continuing to take statin medication at hospital discharge",
+  "VTE-1", "Percentage of patients that received VTE prophylaxis after hospital admission or surgery",
+  "VTE-2", "Percentage of patients that received VTE prophylaxis after being admitted to the intensive care unit (ICU)",
+  "Safe Use of Opioids", "Percentage of patients who were prescribed 2 or more opioids or an opioid and benzodiazepine concurrently at discharge"
+)
+
+dictCare %>% 
+  kable(
+    format = "html",
+    caption = "Table 4. Measure IDs and Measure Names from Timely and Effective Care") %>%
+    kable_styling(bootstrap_options = c("hover", "full_width" = F))
+```
+
+##### Pivoting the data wider  
+```{r}
+careClean <- Timely_and_Effective_Care %>%
+  pivot_wider(
+    names_from = MeasureId, 
+    values_from = c(Score), 
+    id_cols = c(FacilityName, FacilityId, State)
+  )
+
+# Check the new dataframe
+dim(careClean)
+head(careClean)
+```
+
+#### Exploring and Preprocessing the Complications_and_Deaths dataset (AC)  
+
+##### Viewing and checking for missing values  
+```{r}
+# Display first 10 rows of Complications_and_Deaths
+head(Complications_and_Deaths,10)
+
+# Filter dataset to include numeric columns only
+num_vars <- Complications_and_Deaths %>%
+  select_if(is.numeric)
+
+# Check for missing values
+miss_vals <- sapply(num_vars, function(x) sum(is.na(x)))
+print(miss_vals)
+```
+
+##### Replacing NA values  
+```{r}
+# Replacing all "Not Applicable" with NA
+Complications_and_Deaths <- as.data.frame(sapply(Complications_and_Deaths, function(x) {
+  if (is.character(x)) {
+    x[x == "Not Applicable"] <- NA
+  }
+  return(x)
+}))
+
+# Replacing all "Not Available" with NA
+Complications_and_Deaths <- as.data.frame(sapply(Complications_and_Deaths, function(x) {
+  if (is.character(x)) {
+    x[x == "Not Available"] <- NA
+  }
+  return(x)
+}))
+```
+
+##### Creating a dictionary for Complications and Deaths measure names
+```{r}
+dictDeaths <- tribble(
+  ~`Measure ID`, ~`Measure Name`,
+  "COMP-HIP-KNEE", "Rate of complications for hip/knee replacement patients",
+  "PSI 90", "Serious complications (this is a composite or summary measure; alternate Measure ID: PSI-90-SAFETY)",
+  "PSI 03", "Pressure sores (alternate Measure ID: PSI_3_Ulcer)",
+  "PSI 04", "Deaths among patients with serious treatable complications after surgery (alternate Measure ID: PSI-4-SURG-COMP)",
+  "PSI 06", "Collapsed lung due to medical treatment (alternate Measure ID: PSI-6-IAT-PTX)",
+  "PSI 08", "Broken hip from a fall after surgery (alternate Measure ID: PSI_8_POST_HIP)",
+  "PSI 09", "Postoperative hemorrhage or hematoma rate (alternate Measure ID: PSI_9_POST_HEM)",
+  "PSI 10", "Kidney and diabetic complications after surgery (alternate Measure ID: PSI_10_POST_KIDNEY)",
+  "PSI 11", "Respiratory failure after surgery (alternate Measure ID: PSI_11_POST_RESP)",
+  "PSI 12", "Serious blood clots after surgery (alternate Measure ID: PSI-12-POSTOP-PULMEMB-DVT)",
+  "PSI 13", "Blood stream infection after surgery (alternate Measure ID: PSI_13_POST_SEPSIS)",
+  "PSI 14", "A wound that splits open after surgery on the abdomen or pelvis (alternate Measure ID: PSI-14-POSTOP-DEHIS)",
+  "PSI 15", "Accidental cuts and tears from medical treatment (alternate Measure ID: PSI-15-ACC-LAC)",
+  "MORT-30-AMI", "Death rate for heart attack patients",
+  "MORT-30-CABG", "Death rate for Coronary Artery Bypass Graft (CABG) surgery patients",
+  "MORT-30-COPD", "Death rate for chronic obstructive pulmonary disease (COPD) patients",
+  "MORT-30-HF", "Death rate for heart failure patients",
+  "MORT-30-PN", "Death rate for pneumonia patients",
+  "MORT-30-STK", "Death rate for stroke patients"
+)
+
+dictDeaths %>% 
+  kable(
+    format = "html",
+    caption = "Table 5. Measure IDs and Measure Names from Complications and Deaths") %>%
+    kable_styling(bootstrap_options = c("hover", "full_width" = F))
+```
+
+##### Pivoting the data wider  
+```{r}
+deathsClean <- Complications_and_Deaths %>%
+  pivot_wider(
+    names_from = MeasureId, 
+    values_from = c(ComparedToNational, Score), 
+    id_cols = c(FacilityName, FacilityId, State)
+  )
+
+# Check the new dataframe
+dim(deathsClean)
+head(deathsClean)
+```
+
+#### Exploring and Preprocessing the Payment_and_Value_of_Care dataset (AC)  
+
+##### Viewing and checking for missing values  
+```{r}
+# Display first 10 rows of Payment_and_Value_of_Care
+head(Payment_and_Value_of_Care,10)
+
+# Filter dataset to include numeric columns only
+num_vars <- Payment_and_Value_of_Care %>%
+  select_if(is.numeric)
+
+# Check for missing values
+miss_vals <- sapply(num_vars, function(x) sum(is.na(x)))
+print(miss_vals)
+```
+
+##### Replacing NA values  
+```{r}
+# Replacing all "Not Applicable" with NA
+Payment_and_Value_of_Care <- as.data.frame(sapply(Payment_and_Value_of_Care, function(x) {
+  if (is.character(x)) {
+    x[x == "Not Applicable"] <- NA
+  }
+  return(x)
+}))
+
+# Replacing all "Not Available" with NA
+Payment_and_Value_of_Care <- as.data.frame(sapply(Payment_and_Value_of_Care, function(x) {
+  if (is.character(x)) {
+    x[x == "Not Available"] <- NA
+  }
+  return(x)
+}))
+```
+
+##### Creating a dictionary for Payment and Value of Care measure names
+```{r}
+dictPayment <- tribble(
+  ~`Measure ID`, ~`Measure Name`,
+  "PAYM-30-AMI", "Payment for heart attack patients",
+  "PAYM-30-HF", "Payment for heart failure patients",
+  "PAYM-30-PN", "Payment for pneumonia patients",
+  "PAYM_90_HIP_KNEE", "Payment for hip/knee replacement patients"
+)
+
+dictPayment %>% 
+  kable(
+    format = "html",
+    caption = "Table 6. Measure IDs and Measure Names from Payment and Value of Care") %>%
+    kable_styling(bootstrap_options = c("hover", "full_width" = F))
+```
+
+##### Pivoting the data wider  
+```{r}
+paymentClean <- Payment_and_Value_of_Care %>%
+  pivot_wider(
+    names_from = PaymentMeasureId, 
+    values_from = c(PaymentCategory, Payment), 
+    id_cols = c(FacilityName, FacilityId, State)
+  )
+
+# Check the new dataframe
+dim(paymentClean)
+head(paymentClean)
+```
+
+##### Selecting only Hip-Knee related  
+```{r}
+paymentClean <- paymentClean %>%
+  select(FacilityName, FacilityId, State, matches("HIP_KNEE$"))
+```
+
+#### Joining and cleaning the datasets (AC)  
+
+##### Joining the datasets based on FacilityId
+```{r}
+HipKneeClean <- readmissionsClean %>%
+  full_join(HCAHPSClean, by = "FacilityId") %>%
+  full_join(careClean, by = "FacilityId") %>%
+  full_join(deathsClean, by = "FacilityId") %>%
+  full_join(paymentClean, by = "FacilityId")
+
+head(HipKneeClean)
+```
+
+##### Removing redundant columns  
+```{r}
+# Removing duplicate columns
+HipKneeClean <- HipKneeClean %>%
+  select(-matches("\\.(x|y|z|w|v)$"))
+```
+
+#### Checking for NA Values
+```{r}
+# Checking the dimensions
+dim(HipKneeClean)
+
+# Count NA values in each column
+na_counts <- sapply(HipKneeClean, function(x) sum(is.na(x)))
+
+# View the NA counts
+print(na_counts)
+```
+
+##### Removing columns with more than 50% NA values
+```{r}
+# Calculate the percentage of NA values for each column
+na_percentage <- sapply(HipKneeClean, function(x) mean(is.na(x)))
+
+# Remove columns where more than 50% of the values are NA
+HipKneeClean <- HipKneeClean[, na_percentage <= 0.5]
+
+# Count NA values in each column
+na_counts <- sapply(HipKneeClean, function(x) sum(is.na(x)))
+
+# View the NA counts
+print(na_counts)
+```
+
+
+## Segmentation Analysis
+
