@@ -1,0 +1,195 @@
+---
+title: "Exploratory Data Analysis"
+author: "Adeline Casali and Scott Eugley"
+date: "2024-07-29"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    fig_crop: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      cache = FALSE,
+                      cache.comments = TRUE,
+                      size = 13)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# clean, set up, and load
+pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
+rm(list = ls(all = TRUE))
+
+pacman::p_load(tidyverse, 
+               ggplot2, 
+               kableExtra, 
+               lubridate, 
+               caret,
+               janitor,
+               naniar, 
+               maps, 
+               psych, 
+               reshape2, 
+               corrplot, 
+               glmnet) 
+
+load("HipKneeClean.Rdata")
+```
+
+### Creating a summary table for numeric variables
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Select numeric columns
+numeric_columns <- select_if(HipKneeClean, is.numeric)
+
+# Calculate descriptive statistics
+descr_stats <- psych::describe(numeric_columns)
+
+# Convert to a data frame
+descr_stats_df <- as.data.frame(descr_stats)
+
+# Display the table
+kable(descr_stats_df, format = "html", caption = "Table 1. Descriptive Statistics for Numeric Variables in Cleaned Dataset") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+### Exploring categorical variables
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Visualizing the distribution of EDV (Emergency Department Volume)
+ggplot(HipKneeClean, aes(x = EDV)) +
+  geom_bar(fill = "skyblue", color = "black", alpha = 0.7) +
+  labs(title = "Figure 1. Distribution of Emergency Department Volume",
+       x = "EDV",
+       y = "Count") +
+  theme_minimal() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())
+```
+
+### Visualizing the number of facilities per state
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Data preparation
+facility_counts <- HipKneeClean %>%
+  group_by(State) %>%
+  summarise(Count = n(), .groups = 'drop')
+
+# Check the first few rows
+head(facility_counts)
+
+# Get state boundaries
+states_map <- map_data("state")
+
+# Create a mapping from state abbreviations to full state names
+state_mapping <- data.frame(
+  State = state.abb,
+  full_state_name = tolower(state.name),
+  stringsAsFactors = FALSE
+)
+
+# Add full state names to facility_counts
+facility_counts <- merge(facility_counts, state_mapping, by.x = "State", by.y = "State")
+
+# Join facility counts with state map data
+facility_map_data <- left_join(states_map, facility_counts, by = c("region" = "full_state_name"))
+
+# Replace NA values with 0 in the Count column
+facility_map_data$Count[is.na(facility_map_data$Count)] <- 0
+
+# Plot the map with facility counts
+ggplot(data = facility_map_data) +
+  geom_polygon(aes(x = long, y = lat, group = group, fill = Count), color = "white") +
+  scale_fill_gradient(low = "lightblue", high = "darkblue", na.value = "grey50", name = "Facility Count") +
+  theme_minimal() +
+  labs(title = "Figure 2. Number of Facilities per State") +
+  theme(axis.text = element_blank(),
+        axis.title = element_blank(),
+        panel.grid = element_blank(),
+        plot.background = element_blank())
+```
+
+### Visualizing the average PredictedReadmissionRate_HIP-KNEE per state
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Calculate the average PredictedReadmissionRate_HIP-KNEE per state
+average_readmission_rate <- HipKneeClean %>%
+  group_by(State) %>%
+  summarize(Average_PredictedReadmissionRate_HIP_KNEE = mean(PredictedReadmissionRate_HIP_KNEE, na.rm = TRUE))
+
+# Add full state names to the average readmission rate data
+average_readmission_rate <- merge(average_readmission_rate, state_mapping, by.x = "State", by.y = "State")
+
+# Join average readmission rate with state map data
+readmission_map_data <- left_join(states_map, average_readmission_rate, by = c("region" = "full_state_name"))
+
+# Plot the map with average readmission rates
+ggplot(data = readmission_map_data) +
+  geom_polygon(aes(x = long, y = lat, group = group, fill = Average_PredictedReadmissionRate_HIP_KNEE), color = "white") +
+  scale_fill_gradient(low = "lightgreen", high = "darkgreen", name = "Average Predicted\nReadmission Rate") +
+  theme_minimal() +
+  labs(title = "Figure 3. Average Predicted Readmission Rate for Hip/Knee Replacement per State") +
+  theme(axis.text = element_blank(),
+        axis.title = element_blank(),
+        panel.grid = element_blank(),
+        plot.background = element_blank())
+```
+
+### Visualizing the spread of the target variable (PredictedReadmissionRate_HIP_KNEE)
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Create a histogram of PredictedReadmissionRate_HIP_KNEE
+ggplot(HipKneeClean, aes(x = PredictedReadmissionRate_HIP_KNEE)) +
+  geom_histogram(binwidth = 0.25, fill = "skyblue", color = "black") +
+  labs(title = "Figure 4. Histogram of Predicted Readmission Rate for Hip/Knee Replacement",
+       x = "Predicted Readmission Rate",
+       y = "Frequency") +
+  theme_minimal() + 
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank())
+```
+
+### Creating a table of missing values
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Calculate missing values
+missing_values_summary <- HipKneeClean %>%
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Missing_Count") %>%
+  mutate(Missing_Percentage = (Missing_Count / nrow(HipKneeClean)) * 100)
+
+# Print the table using kable
+missing_values_summary %>%
+  kable(caption = "Table 2. Missing Values Summary") %>%
+  kable_styling(bootstrap_options = c("hover", "striped", "responsive"))
+```
+
+### Assessing colinearity
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=12}
+# Compute correlation matrix
+cor_matrix <- cor(HipKneeClean %>% select_if(is.numeric), use = "pairwise.complete.obs")
+
+# Melt the correlation matrix into a long format
+cor_melted <- melt(cor_matrix)
+
+# Plot the heatmap
+ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), name = "Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Figure 5. Correlation Heatmap of Numeric Variables")
+
+# Convert the correlation matrix to a data frame
+cor_table <- as.data.frame(cor_matrix)
+
+# Add variable names as a column for better readability
+cor_table$Variable <- rownames(cor_table)
+
+# Reorder columns for better readability
+cor_table <- cor_table %>%
+  select(Variable, everything())
+
+# Print the table using kable
+cor_table %>%
+  kable(caption = "Table 3. Correlation Coefficients Table") %>%
+  kable_styling(bootstrap_options = c("hover", "striped", "responsive"))
+```
+
