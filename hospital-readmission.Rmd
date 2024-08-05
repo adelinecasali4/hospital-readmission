@@ -91,7 +91,7 @@ A potential pitfall of our analysis plan is data quality and completeness. The d
 ### Loading the Data (AC)  
 ```{r, message=FALSE, warning=FALSE}
 # Set the directory for the data files
-filepath <- "/Users/adelinecasali/Desktop/hospitals_current_data/" 
+filepath <- "/Users/seugley/Desktop/Data Science/DSE 6311/" 
 
 # List the files in the directory that have "Hospital.csv"
 files <- list.files(path = filepath, pattern = "Hospital.csv")
@@ -851,6 +851,141 @@ cor_table %>%
   kable_styling(bootstrap_options = c("hover", "striped", "responsive"))
 ```
 
+# Variable Encoding
 
-# Segmentation Analysis
+#### Identify Categorical Variables
+```{r}
+# Create function to find categorical variables
+is_categorical <- function(x) is.factor(x) | is.character(x)
+
+# Apply function to all variables in the dataset
+categorical_vars <- sapply(HipKneeClean, is_categorical)
+
+# Print the names of all categorical variables
+categorical <- names(HipKneeClean)[categorical_vars]
+categorical
+```
+
+#### Dummy encode the EDV column 
+```{r}
+# Define the encoding mapping (ignore NAs for now)
+encoding_map <- c(
+  'low' = 1,
+  'medium' = 2,
+  'high' = 3,
+  'very high' = 4
+)
+# Dummy encoding used due to ordinal nature of this data
+
+# Create a copy of HipKneeClean and name it HipKneeTrain to separate cleaned dataset and the training dataset
+HipKneeTrain <- HipKneeClean %>%
+  mutate(EDV = recode(EDV, !!!encoding_map))
+
+# Print first 20 rows of EDV column in HipKneeClean and HipKneeTrain to ensure proper encoding
+cat("HipKneeClean")
+print(head(HipKneeClean$EDV, 20))
+
+cat("HipKneeTrain")
+print(head(HipKneeTrain$EDV, 20))
+```
+
+#### Encode each state in alphabetical order
+```{r}
+# Manually map out each state with their respective code in alphabetical order with a preceding 0 to make data non-ordinal
+state_mapping <- c(
+  "AL" = "001",
+  "AK" = "002",
+  "AZ" = "003",
+  "AR" = "004",
+  "CA" = "005",
+  "CO" = "006",
+  "CT" = "007",
+  "DE" = "008",
+  "FL" = "009",
+  "GA" = "010",
+  "HI" = "011",
+  "ID" = "012",
+  "IL" = "013",
+  "IN" = "014",
+  "IA" = "015",
+  "KS" = "016",
+  "KY" = "017",
+  "LA" = "018",
+  "ME" = "019",
+  "MD" = "020",
+  "MA" = "021",
+  "MI" = "022",
+  "MN" = "023",
+  "MS" = "024",
+  "MO" = "025",
+  "MT" = "026",
+  "NE" = "027",
+  "NV" = "028",
+  "NH" = "029",
+  "NJ" = "030",
+  "NM" = "031",
+  "NY" = "032",
+  "NC" = "033",
+  "ND" = "034",
+  "OH" = "035",
+  "OK" = "036",
+  "OR" = "037",
+  "PA" = "038",
+  "RI" = "039",
+  "SC" = "040",
+  "SD" = "041",
+  "TN" = "042",
+  "TX" = "043",
+  "UT" = "044",
+  "VT" = "045",
+  "VA" = "046",
+  "WA" = "047",
+  "WV" = "048",
+  "WI" = "049",
+  "WY" = "050"
+)
+
+# Create new "StateCode" column with the encoded values
+HipKneeTrain <- HipKneeTrain %>%
+  mutate(StateCode = state_mapping[State])
+
+# Print 100 rows of the "State" and "StateCode" columns to ensure accuracy
+print("State and StateCode Columns")
+print(head(HipKneeTrain[c("State", "StateCode")], 100))
+
+# Print all unique values in "StateCode" column to ensure accuracy
+print("Unique StateCode Values")
+print(unique(HipKneeTrain$StateCode))
+```
+
+# Handling Collinearity
+
+#### Remove the HCAHPS average star rating variables and leave the linear score variables. 
+```{r}
+# Remove all the average patient survey star rating variables
+columns_to_remove <- c(
+  "PatientSurveyStarRating_H_COMP_1_STAR_RATING",    
+  "PatientSurveyStarRating_H_COMP_2_STAR_RATING",    
+  "PatientSurveyStarRating_H_COMP_3_STAR_RATING",    
+  "PatientSurveyStarRating_H_COMP_5_STAR_RATING",    
+  "PatientSurveyStarRating_H_COMP_6_STAR_RATING",    
+  "PatientSurveyStarRating_H_COMP_7_STAR_RATING",    
+  "PatientSurveyStarRating_H_CLEAN_STAR_RATING",     
+  "PatientSurveyStarRating_H_QUIET_STAR_RATING",     
+  "PatientSurveyStarRating_H_HSP_RATING_STAR_RATING",
+  "PatientSurveyStarRating_H_RECMND_STAR_RATING",    
+  "PatientSurveyStarRating_H_STAR_RATING"
+)
+HipKneeTrain <- HipKneeTrain %>% select(-all_of(columns_to_remove))
+
+# Print columns to verify it worked
+print("Columns left after removing average star rating variables")
+print(colnames(HipKneeTrain))
+
+# Linear mean scores encompass all survey response categories in each HCAHPS measure and are converted and combined into a 0-100 linear-scaled measure score.
+```
+
+
+
+
 
