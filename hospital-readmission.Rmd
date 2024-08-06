@@ -1089,7 +1089,7 @@ missing_values_summary %>%
   kable(caption = "Table 7. Missing Values Summary") %>%
   kable_styling(bootstrap_options = c("hover", "striped", "responsive"))
 ```
-#### Impute variables with low percentage missingness (<5%) by the median for numeric variables and mode for categorical variables
+#### Impute variables with low percentage missingness (<5%) by the median for numeric variables 
 ```{r}
 # Calculate median for columns with <5% missing values
 numeric_vars_low_missing <- c("HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE", "EDV", "HCP_COVID_19", "IMM_3", "OP_18b", "SAFE_USE_OF_OPIOIDS", "Score_COMP_HIP_KNEE", "Score_PSI_03", "Score_PSI_06", "Score_PSI_08", "Score_PSI_09", "Score_PSI_10", "Score_PSI_11", "Score_PSI_12", "Score_PSI_13", "Score_PSI_14", "Score_PSI_15", "Payment_PAYM_90_HIP_KNEE")

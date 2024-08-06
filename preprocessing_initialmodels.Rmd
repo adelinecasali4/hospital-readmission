@@ -35,9 +35,13 @@ pacman::p_load(tidyverse,
                reshape2, 
                corrplot,
                VIM,
-               glmnet) 
+               glmnet, 
+               psych,  
+               reshape2) 
 
 load("HipKneeClean.Rdata")
+load("HipKneeTrain.Rdata")
+load("HipKneeTest.Rdata")
 ```
 
 [GitHub Repository Here](https://github.com/adelinecasali4/hospital-readmission/tree/main)
@@ -53,20 +57,221 @@ Hospitals with better Hospital Consumer Assessment of Healthcare Providers and S
 It is anticipated that patient satisfaction, clinical treatment quality, and operational efficiency will be the most important risk factor categories associated with hospital readmission rates among patients who have had hip or knee replacement surgery. The most important variables influencing readmission rates for patients after hip or knee replacement surgery will most likely be a combination of high HCAHPS scores and reduced rates of clinical complications.  
 
 # Methods
+Our preprocessing and feature engineering approach was designed to address the complexities highlighted during exploratory data analysis (EDA). The initial plan involved several key steps:
+
+Preprocessing: We focused on handling missing values, encoding categorical variables, and reducing collinearity. The preprocessing steps included dummy encoding of ordinal data, mapping categorical states to numeric codes, and removing variables with high missingness or redundancy. This approach aimed to ensure that the dataset was clean and suitable for further analysis. We specifically addressed the high number of missing values and collinearity issues as identified in our EDA.
+
+Feature Engineering: We engineered features to consolidate related data and reduce dimensionality. For instance, we created a composite variable for overall mortality scores and removed redundant or highly correlated variables. This strategy aimed to simplify the feature set while retaining critical information, thus enhancing model performance and interpretability.
+
+Initial Model Selection: Based on our EDA findings, we planned to explore multiple methods of unsupervised learning and employ a random forest model. Unsupervised methods, such as KNN for segmentation analysis, were chosen to identify clusters and uncover underlying patterns in the data. The random forest model was selected as an initial supervised learning approach due to its robustness in handling diverse data types and managing feature importance.
 
 ## Preprocessing and Feature Selection
+To ensure the dataset's suitability for analysis, several preprocessing steps were employed. First, categorical variables were identified, and appropriate encoding methods were applied. The EDV column, which contains ordinal data, was dummy encoded based on predefined levels, transforming it into a numeric format that reflects its ordinal nature. This approach preserves the inherent order of the data while making it suitable for statistical modeling. Additionally, categorical states were encoded using a numeric mapping to eliminate potential ordinal relationships and standardize the representation of states. This choice was made to facilitate model compatibility and avoid any unintended ordinal implications in the analysis.
 
+Unnecessary or highly correlated variables were then removed to streamline the dataset. Variables with significant missingness or redundancy, such as certain patient survey ratings and summary statistics, were excluded. The decision to remove these variables was guided by their high correlation with other variables, high missingness, or redundancy with already included metrics. For instance, combining various patient survey metrics into a single comprehensive score helped reduce collinearity and simplify the feature set. See table 1 for a list of all variables that were removed and justification for doing so. 
 
-## Unsupervised Methods
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Create a data frame with the variable names and justifications
+removed_vars <- data.frame(
+  Variable = c("OP_18c", "OP_22", "ED_2_Strata_1", "OP_23", "VTE_2", 
+               "STK_02", "STK_05", "STK_06", "HcahpsLinearMeanValue_H_RECMND_LINEAR_SCORE", 
+               "ExcessReadmissionRatio_HIP-KNEE", "ExpectedReadmissionRate_HIP-KNEE", 
+               "NumberOfReadmissions_HIP-KNEE", "Sepsis Variables", "Score_PSI_90",
+               "Patient Survey Data"),
+  Justification = c("Removed due to high correlation and low relevance.",
+                     "Removed due to high correlation and low relevance.",
+                     "Removed due to high percentage of missingness.",
+                     "Removed due to high percentage of missingness.",
+                     "Removed due to high percentage of missingness.",
+                     "Removed as stroke data is not relevant to Hip/Knee Surgery.",
+                     "Removed as stroke data is not relevant to Hip/Knee Surgery.",
+                     "Removed as stroke data is not relevant to Hip/Knee Surgery.",
+                     "Removed due to strong correlation with overall hospital rating.",
+                     "Removed due to high correlation with target variable.",
+                     "Removed due to high correlation with target variable.",
+                     "Removed as it is influenced by hospital size, which is not available.",
+                     "Removed due to unclear definition in dataset dictionary.",
+                     "Removed because it is a summary of other PSI variables, making it redundant.",
+                     "Removed due to collinearity and redundancy with other patient survey metrics.")
+)
+
+# Print the table
+removed_vars %>%
+  kable(caption = "Table 1: Justifications for Removal of Variables") %>%
+  kable_styling(bootstrap_options = c("hover", "striped", "responsive"))
+```
+
+Feature engineering focused on creating meaningful variables from existing data and removing irrelevant or redundant features. A notable example is the creation of the Score_Ovr_MORT variable, which aggregates multiple mortality-related scores into a single measure. This new feature consolidates related variables, reducing dimensionality while preserving critical information on mortality rates.
 
 ## Initial Model
+Make sure to briefly recap why you chose this as your initial model if you didn't earlier
+(1-2 paragraphs) What methods did you use to perform your initial model? Why did you make the choices that you did?
+Did you do cross-validation? If yes, describe.
+What are your model's assumptions? Did you test for them? If yes, describe.
 
 # Results
+## Preprocessing and Feature Engineering
+First, categorical variables were appropriately encoded, and redundant variables were removed, as described in the previous section. Collinearity was greatly reduced, as evident by the heat maps in Figure 1 and Figure 2. Additionally, all rows with NA values for the target variables were removed. We also decided to remove the one facility that had an NA value, which happened to be the same observation with a missing state value. Variables with less than 5% missing data were imputed by the median, as this has a small impact on the variation of the predictors. Any variables with greater than 5% missing values were imputed using kNN to allow for more accurate imputation and mitigate reduction in variation. All steps were repeated on the test dataset, which is the most recent snapshot of the data from April 24, 2024. Finally, descriptive statistics were computed for all variables (Table 2, Figure 3). 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=12}
+# Compute correlation matrix
+cor_matrix <- cor(HipKneeClean %>% select_if(is.numeric), use = "pairwise.complete.obs")
+
+# Melt the correlation matrix into a long format
+cor_melted <- melt(cor_matrix)
+
+# Plot heatmap
+ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), name = "Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Figure 1. Correlation Heatmap of Numeric Variables Before Preprocessing")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.width=14, fig.height=12}
+# Compute correlation matrix
+cor_matrix <- cor(HipKneeTrain %>% select_if(is.numeric), use = "pairwise.complete.obs")
+
+# Melt the correlation matrix into a long format
+cor_melted <- melt(cor_matrix)
+
+# Plot heatmap
+ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), name = "Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Figure 2. Correlation Heatmap of Numeric Variables After Preprocessing")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Create a summary table of descriptive statistics
+descr_stats <- describe(HipKneeTrain)
+# Remove the rows with Facility ID, State and State code, and facility name
+descr_stats <- descr_stats %>% filter(vars != c(1, 23, 24, 26))
+# Remove columns 1, 2, 5, and 6
+descr_stats <- descr_stats[, -c(1, 2, 5, 6)]
+
+# Create a table with kable
+kable(descr_stats, format = "html", caption = "Table 2. Descriptive Statistics for All Numeric Variables in Final Dataset") %>%
+  kable_styling(
+    bootstrap_options = c("hover", "striped", "responsive")
+  ) %>%
+  column_spec(1, bold = TRUE) %>%
+  column_spec(2, width = "5em") %>%
+  row_spec(0, bold = TRUE, background = "#f2f2f2")
+
+# Select numeric columns
+numeric_columns <- HipKneeTrain %>% select_if(is.numeric)
+
+# Melt the data for easier plotting with ggplot2
+numeric_melted <- melt(numeric_columns)
+
+# Create histograms
+ggplot(numeric_melted, aes(x = value)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black") +
+  facet_wrap(~variable, scales = "free_x") +
+  theme_minimal() +
+  labs(title = "Figure 3. Histograms of Numeric Variables", x = "Value", y = "Frequency")
+```
 
 
+## Segmentation Analysis
+NOTE: Make sure you thoroughly describe your unsupervised ML methods.
+Note: If inappropriate to your data, justification for exclusion may be provided instead.
 
+## Initial Model 
+Give your analysis of your initial model's (1) algorithm, (2) assumptions, and (3) overfitting for your initial model, using tables, graphs, and statistics to defend choices and interpretations, and do not count toward the page limit.
+Algorithm: appropriate tables or figures are given to interpret the preliminary model results using evaluation metrics
+Assumptions: include any tests (e.g., Durbin-Watson), graphs (e.g., residuals plots), heuristics, or other diagnostics as needed
+Overfitting: control for possible overfitting, which may include but is not limited to: (1) validation with the training and testing sets, (2) cross-validation, (3) regularization or penalties, and/or (4) additional feature selection
+This will be performed in greater detail next week, so you may just give a cursory treatment to this to save you time this week. (~ 1 paragraph)
 
-# Preprocessing
+# Discussion and Next Steps
+(1-2 paragraphs) Include a summary of your key takeaways from both the Pre-processing & feature selection, as well as the initial model you ran
+Make sure to refer back to the question you've proposed
+Refer back to what you initially proposed and revise if needed! 
+Include justifications for changes, including referring back to sections, tables, or graphs in your text.
+(1-2 paragraphs) Includes a plan for next steps: Model Selection & Tuning Plan
+What additional models will you run? How will you validate them?
+What hyperparameter tuning is needed?
+Did this analysis change anything in your Analysis Plan?
+
+# Appendix 1: Data Dictionary
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Define the data dictionary
+data_dictionary <- data.frame(
+  Measure_ID = c("FacilityId*", "FacilityName", "State", "ExcessReadmissionRatio_HIP-KNEE", 
+                 "PredictedReadmissionRate_HIP_KNEE*", "ExpectedReadmissionRate_HIP-KNEE", 
+                 "NumberOfReadmissions_HIP-KNEE", "H_HSP_RATING_LINEAR_SCORE*", 
+                 "H_RECMND_LINEAR_SCORE", "EDV*", "ED_2", "IMM_3*", "HCP_COVID_19*", 
+                 "OP_18b*", "OP_18c", "OP_22", "OP_23", "OP_29*", "SAFE_USE_OF_OPIOIDS*", 
+                 "SEP_1", "SEP_SH_3HR", "SEP_SH_6HR", "SEV_SEP_3HR", "SEV_SEP_6HR", 
+                 "STK_02", "STK_05", "STK_06", "VTE_1*", "VTE_2", "Score_COMP_HIP_KNEE*", 
+                 "Score_MORT_30_AMI", "Score_MORT_30_COPD", "Score_MORT_30_HF", 
+                 "Score_MORT_30_PN", "Score_MORT_30_STK", "Score_Ovr_MORT*", 
+                 "Score_PSI_03*", "Score_PSI_04*", "Score_PSI_06*", "Score_PSI_08*", 
+                 "Score_PSI_09*", "Score_PSI_10*", "Score_PSI_11*", "Score_PSI_12*", 
+                 "Score_PSI_13*", "Score_PSI_14*", "Score_PSI_15*", "Score_PSI_90", 
+                 "Payment_PAYM_90_HIP_KNEE*"),
+  Description = c("Unique facility identifier.", "Name of the facility.", "State where the facility is located.", 
+                  "The ratio of the predicted readmission rate to the expected readmission rate, based on an average hospital with similar patients. Performance is compared against a ratio of one, such that below one is better and above one is worse in terms of readmission rates.", 
+                  "The number of readmissions within 30 days predicted based on the hospital’s performance with its observed case mix. The predicted number of readmissions is estimated using a hospital-specific intercept, and is intended to reflect the annual expected performance of the hospital given its historical case and patient mix and performance.", 
+                  "The expected number of readmissions in each hospital is estimated using its patient mix and an average hospital-specific intercept. It is thus indirectly standardized to other hospitals with similar case and patient mixes.", 
+                  "Crude number of readmissions in each hospital within 30 days.", 
+                  "Overall hospital rating - linear mean score. Employs all survey response items in each HCAHPS measure and are converted and combined into a 0-100 linear-scaled measure score.", 
+                  "Recommend hospital - linear mean score. From question: Would you recommend this hospital to your friends and family?", 
+                  "Emergency department volume. Number based on the volume of patients submitted by a hospital used for the measure OP-22: Left without Being Seen.", 
+                  "Average (median) admit decision time to time of departure from the emergency department for emergency department patients admitted to inpatient status.", 
+                  "Healthcare workers given influenza vaccination.", 
+                  "COVID-19 vaccination coverage among healthcare providers.", 
+                  "Average (median) time patients spent in the emergency department before leaving from the visit.", 
+                  "Average time patients spent in the emergency department before being sent home (Median Time from ED Arrival to ED Departure for Discharged ED Patients – Psychiatric/Mental Health Patients).", 
+                  "Percentage of patients who left the emergency department before being seen.", 
+                  "Percentage of patients who came to the emergency department with stroke symptoms who received brain scan results within 45 minutes of arrival.", 
+                  "Percentage of patients receiving appropriate recommendation for follow-up screening colonoscopy.", 
+                  "Percentage of patients who were prescribed 2 or more opioids or an opioid and benzodiazepine concurrently at discharge.", 
+                  "Severe sepsis and septic shock.", 
+                  "Septic shock 3 hour.", 
+                  "Septic shock 6 hour.", 
+                  "Severe sepsis 3 hour.", 
+                  "Severe sepsis 6 hour.", 
+                  "Percentage of ischemic stroke patients prescribed or continuing to take antithrombotic therapy at hospital discharge.", 
+                  "Percentage of ischemic stroke patients administered antithrombotic therapy by the end of hospital day 2.", 
+                  "Percentage of ischemic stroke patients who are prescribed or continuing to take statin medication at hospital discharge.", 
+                  "Percentage of patients that received VTE prophylaxis after hospital admission or surgery.", 
+                  "Percentage of patients that received VTE prophylaxis after being admitted to the intensive care unit (ICU).", 
+                  "Rate of complications for hip/knee replacement patients.", 
+                  "Death rate for heart attack patients.", 
+                  "Death rate for chronic obstructive pulmonary disease (COPD) patients.", 
+                  "Death rate for heart failure patients.", 
+                  "Death rate for pneumonia patients.", 
+                  "Death rate for stroke patients.", 
+                  "Summary measure (row-wise mean) of Score_MORT_30_AMI, Score_MORT_30_COPD, Score_MORT_30_HF, Score_MORT_30_PN, and Score_MORT_30_STK.", 
+                  "Rate of pressure sores.", 
+                  "Deaths among patients with serious treatable complications after surgery.", 
+                  "Collapsed lung due to medical treatment.", 
+                  "Broken hip from a fall after surgery.", 
+                  "Postoperative hemorrhage or hematoma rate.", 
+                  "Kidney and diabetic complications after surgery.", 
+                  "Respiratory failure after surgery.", 
+                  "Serious blood clots after surgery.", 
+                  "Blood stream infection after surgery.", 
+                  "A wound that splits open after surgery on the abdomen or pelvis.", 
+                  "Accidental cuts and tears from medical treatment.", 
+                  "Serious complications (this is a composite or summary measure).", 
+                  "Payment for hip/knee replacement - estimates of payments associated with a 90-day episode of care for hip/knee replacement.")
+)
+
+# Create the table
+kable(data_dictionary, caption = "Data Dictionary<br><i>* indicates measure utilized in final dataset</i>") %>%
+  kable_styling(full_width = F, position = "center", bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+# Appendix 2: Preprocessing and Feature Engineering Code
 
 ## Variable Encoding (SE)
 
@@ -1121,15 +1326,41 @@ ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
 save(HipKneeTest, file = "HipKneeTest.RData")
 ```
 
+## Descriptive Statistics
+```{r}
+# Create a summary table of descriptive statistics
+descr_stats <- describe(HipKneeTrain)
+# Remove the rows with Facility ID, State and State code, and facility name
+descr_stats <- descr_stats %>% filter(vars != c(1, 23, 24, 26))
+# Remove columns 1, 2, 5, and 6
+descr_stats <- descr_stats[, -c(1, 2, 5, 6)]
 
-# Segmentation Analysis
+# Create a table with kable
+kable(descr_stats, format = "html", caption = "Descriptive Statistics for All Numeric Variables in Final Dataset") %>%
+  kable_styling(
+    bootstrap_options = c("hover", "striped", "responsive")
+  ) %>%
+  column_spec(1, bold = TRUE) %>%
+  column_spec(2, width = "5em") %>%
+  row_spec(0, bold = TRUE, background = "#f2f2f2")
+
+# Select numeric columns
+numeric_columns <- HipKneeTrain %>% select_if(is.numeric)
+
+# Melt the data for easier plotting with ggplot2
+numeric_melted <- melt(numeric_columns)
+
+# Create histograms
+ggplot(numeric_melted, aes(x = value)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black") +
+  facet_wrap(~variable, scales = "free_x") +
+  theme_minimal() +
+  labs(title = "Histograms of Numeric Variables", x = "Value", y = "Frequency")
+```
+
+# Appendix 3: Segmentation Analysis Code
 
 
-# Initial Models
+# Appendix 4: Initial Model Code
 
-
-# Discussion and Next Steps
-
-
-# Appendix 1: Data Dictionary 
 
