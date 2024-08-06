@@ -33,7 +33,8 @@ pacman::p_load(tidyverse,
                maps, 
                psych, 
                reshape2, 
-               corrplot, 
+               corrplot,
+               VIM,
                glmnet) 
 ```
 
@@ -958,14 +959,24 @@ print("Unique StateCode Values")
 print(unique(HipKneeTrain$StateCode))
 ```
 
-# Handling Collinearity
+# Collinearity and Feature Removal
 
-#### Remove the HCAHPS average star rating variables, COMP_1 through COMP_7 linear score variables, and CLEAN and QUIET linear score variables. 
+#### Remove correlated and unnecessary variables 
 ```{r}
-library(tidyverse)
-
 # Specify columns to remove
 columns_to_remove <- c(
+  "ED_2_Strata_1",
+  "OP_23",
+  "VTE_2",
+  "OP_18c",
+  "OP_22",
+  "STK_02",
+  "STK_05",
+  "STK_06",
+  "HcahpsLinearMeanValue_H_RECMND_LINEAR_SCORE",
+  "NumberOfReadmissions_HIP-KNEE",
+  "ExcessReadmissionRatio_HIP-KNEE",
+  "ExpectedReadmissionRate_HIP-KNEE",
   "SEP_1",
   "SEV_SEP_6HR",
   "SEV_SEP_3HR",
@@ -995,11 +1006,18 @@ columns_to_remove <- c(
 
 # Remove specified columns
 HipKneeTrain <- HipKneeTrain %>% select(-all_of(columns_to_remove))
+```
 
+```{r}
 # Print column names to verify
 print("Remaining columns:")
 print(colnames(HipKneeTrain))
 ```
+> "OP_18c" and "OP_22" removed due to being highly correlated and low relevance.
+> "ED_2_Strata_1", "OP_23", and "VTE_2" removed due to high percentage of missingness. 
+> "STK_02", "STK_05", and "STK_06" variables removed as we do not see stroke data as being relevant towards Hip/Knee Surgery.
+> "HcahpsLinearMeanValue_H_RECMND_LINEAR_ SCORE" removed as it is strongly correlated with overall hospital rating.
+> "ExcessReadmissionRatio_HIP-KNEE", and "ExpectedReadmissionRate_HIP-KNEE" removed due to being highly correlated with the target variable. "NumberOfReadmissions_HIP-KNEE" removed as this would be highly influenced by hospital size and we have no data on hospital sizes.
 > Sepsis variables removed due to unclear definition in the dataset's dictionary of what the values represent.
 > Score_PSI_90 variable removed because it's a summary of the other PSI variables. We chose to include all the individual PSI variables, which makes the summary variable redundant. 
 > We chose to remove a lot of the patient survey data due to collinearity and redundancy. The average star rating data is redundant with the linear mean score data. We decided to keep the overall hospital rating linear mean score, and the hospital recommendation linear mean score columns. We felt that these variables summarized the other, more granular, metrics. For example COMP-1 is nurse responsiveness and COMP-2 is doctor responsiveness, COMP-3 is staff responsiveness. It makes sense that a lot of these were collinear. We had considered engineering the comp features (1-7) together into a single patient experience variable, however, this was collinear with overall hospital rating and recommendation. We also chose to go with the linear mean score overall hospital rating and recommendation score, because the dataset essentially already scaled these variables for us by performing a linear transformation. 
@@ -1007,16 +1025,13 @@ print(colnames(HipKneeTrain))
 
 #### Reassess collinearity with heatmap and correlation matrix
 ```{r, fig.width=14, fig.height=15}
-
-library(reshape2)
-
 # Compute correlation matrix
 cor_matrix <- cor(HipKneeTrain %>% select_if(is.numeric), use = "pairwise.complete.obs")
 
 # Melt the correlation matrix into a long format
 cor_melted <- melt(cor_matrix)
 
-# Plot the heatmap
+# Plot heatmap
 ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
   geom_tile() +
   scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
@@ -1025,22 +1040,124 @@ ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(title = "Figure 5. Correlation Heatmap of Numeric Variables")
 
-# Convert the correlation matrix to a data frame
+# Convert correlation matrix to df
 cor_table <- as.data.frame(cor_matrix)
 
-# Add variable names as a column for better readability
+# Add variable names as a column
 cor_table$Variable <- rownames(cor_table)
 
-# Reorder columns for better readability
+# Reorder columns
 cor_table <- cor_table %>%
   select(Variable, everything())
 
-# Print the table using kable
+# Print table
 cor_table %>%
   kable(caption = "Table 8. Correlation Coefficients Table") %>%
   kable_styling(bootstrap_options = c("hover", "striped", "responsive"))
 ```
 
+# Imputation and Handling of Missing Values
+
+```{r}
+# Remove all NA values in target variable "PredictedReadmissionRate_HIP_KNEE"
+HipKneeTrain <- HipKneeTrain %>% filter(!is.na(PredictedReadmissionRate_HIP_KNEE))
+
+# Remove all NA values in the "State", "StateCode", and "FacilityName" columns
+HipKneeTrain <- HipKneeTrain %>% drop_na(State, StateCode, FacilityName)
 
 
+# Print number of remaining variables and observations
+dimensions <- dim(HipKneeTrain)
+cat("Number of variables:", dimensions[2], "\n")
+cat("Number of observations:", dimensions[1], "\n")
+```
+> We decided to remove the one facility that had an NA value, which also happened to be the same observation with a missing state value.
+
+```{r}
+# Calculate missing values
+missing_values_summary <- HipKneeTrain %>%
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Missing_Count") %>%
+  mutate(Missing_Percentage = (Missing_Count / nrow(HipKneeTrain)) * 100)
+
+# Print table
+missing_values_summary %>%
+  kable(caption = "Table 7. Missing Values Summary") %>%
+  kable_styling(bootstrap_options = c("hover", "striped", "responsive"))
+```
+#### Impute variables with low percentage missingness (<5%) by the median for numeric variables and mode for categorical variables
+```{r}
+# Calculate median for columns with <5% missing values
+numeric_vars_low_missing <- c("HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE", "EDV", "HCP_COVID_19", "IMM_3", "OP_18b", "SAFE_USE_OF_OPIOIDS", "Score_COMP_HIP_KNEE", "Score_PSI_03", "Score_PSI_06", "Score_PSI_08", "Score_PSI_09", "Score_PSI_10", "Score_PSI_11", "Score_PSI_12", "Score_PSI_13", "Score_PSI_14", "Score_PSI_15", "Payment_PAYM_90_HIP_KNEE")
+
+for (var in numeric_vars_low_missing) {
+  HipKneeTrain[[var]][is.na(HipKneeTrain[[var]])] <- median(HipKneeTrain[[var]], na.rm = TRUE)
+}
+```
+
+#### Impute high percentage missingness variables (>5%) using KNN
+```{r}
+# Select high missingness variables for KNN imputation
+vars_for_knn <- c("VTE_1", "Score_MORT_30_AMI", "Score_MORT_30_COPD", "Score_MORT_30_HF", "Score_MORT_30_PN", "Score_MORT_30_STK", "Score_PSI_04", "OP_29")
+
+# Perform KNN imputation
+HipKneeTrain_knn <- kNN(HipKneeTrain, variable = vars_for_knn, k = 5)
+
+# Remove columns created by the KNN function
+HipKneeTrain_knn <- HipKneeTrain_knn %>% select(-ends_with("_imp"))
+
+# Update HipKneeTrain with imputed values
+HipKneeTrain[vars_for_knn] <- HipKneeTrain_knn[vars_for_knn]
+```
+
+```{r}
+# Calculate missing values
+missing_values_summary <- HipKneeTrain %>%
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Missing_Count") %>%
+  mutate(Missing_Percentage = (Missing_Count / nrow(HipKneeTrain)) * 100)
+
+# Print table
+missing_values_summary %>%
+  kable(caption = "Table 7. Missing Values Summary") %>%
+  kable_styling(bootstrap_options = c("hover", "striped", "responsive"))
+```
+
+# Feature Engineer Mortality Data
+```{r}
+# Average death rates amongst mortality variables and create new column "Score_Ovr_MORT"
+HipKneeTrain$Score_Ovr_MORT <- rowMeans(HipKneeTrain[, c("Score_MORT_30_AMI", 
+                                                         "Score_MORT_30_COPD", 
+                                                         "Score_MORT_30_HF", 
+                                                         "Score_MORT_30_PN", 
+                                                         "Score_MORT_30_STK")], 
+                                                          na.rm = TRUE)
+
+# Remove old mortality columns
+HipKneeTrain <- HipKneeTrain[, !(names(HipKneeTrain) %in% c("Score_MORT_30_AMI", 
+                                                            "Score_MORT_30_COPD",
+                                                            "Score_MORT_30_HF", 
+                                                            "Score_MORT_30_PN", 
+                                                            "Score_MORT_30_STK"))]
+
+```
+
+#### Reassess heatmap with engineered mortality data
+```{r, fig.width=14, fig.height=15}
+# Compute correlation matrix
+cor_matrix <- cor(HipKneeTrain %>% select_if(is.numeric), use = "pairwise.complete.obs")
+
+# Melt the correlation matrix into a long format
+cor_melted <- melt(cor_matrix)
+
+# Plot heatmap
+ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), name = "Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Figure 5. Correlation Heatmap of Numeric Variables")
+```
+> Descriptive Statistics (Adeline)
 
