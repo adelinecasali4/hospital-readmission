@@ -35,9 +35,13 @@ pacman::p_load(tidyverse,
                reshape2, 
                corrplot,
                VIM,
-               glmnet, 
-               psych,  
-               reshape2) 
+               glmnet,
+               cluster,
+               factoextra,
+               dendextend,
+               randomForest,
+               caret, 
+               lmtest) 
 
 load("HipKneeClean.Rdata")
 load("HipKneeTrain.Rdata")
@@ -104,10 +108,7 @@ removed_vars %>%
 Feature engineering focused on creating meaningful variables from existing data and removing irrelevant or redundant features. A notable example is the creation of the Score_Ovr_MORT variable, which aggregates multiple mortality-related scores into a single measure. This new feature consolidates related variables, reducing dimensionality while preserving critical information on mortality rates.
 
 ## Initial Model
-Make sure to briefly recap why you chose this as your initial model if you didn't earlier
-(1-2 paragraphs) What methods did you use to perform your initial model? Why did you make the choices that you did?
-Did you do cross-validation? If yes, describe.
-What are your model's assumptions? Did you test for them? If yes, describe.
+For our initial model, we chose the Random Forest algorithm due to its robustness and ability to handle a large number of input variables without overfitting. Random Forests are ensemble learning methods that construct multiple decision trees during training and output the mode of the classes (classification) or mean prediction (regression) of the individual trees. This approach helps in managing the complexities and interactions between numerous features in our dataset. We used a grid search with 7-fold cross-validation to tune the mtry parameter, which determines the number of variables considered at each split in the trees.
 
 # Results
 ## Preprocessing and Feature Engineering
@@ -180,25 +181,240 @@ ggplot(numeric_melted, aes(x = value)) +
 
 
 ## Segmentation Analysis
-NOTE: Make sure you thoroughly describe your unsupervised ML methods.
-Note: If inappropriate to your data, justification for exclusion may be provided instead.
+For unsupervised machine learning, we employed both k-means clustering and hierarchical clustering to explore the underlying structure of the dataset. For k-means clustering, we first standardized the numeric features and used the elbow method to determine the optimal number of clusters, which was found to be three. The k-means algorithm was then applied, and cluster characteristics were analyzed by computing the mean of numeric features within each cluster. Visualizations of feature distributions across clusters and the overall cluster structure were created to gain insights into the clustering results (Figure 4).
+
+Hierarchical clustering was also performed to validate the k-means results. We computed a distance matrix and applied Ward’s method to obtain cluster solutions. An analysis of within-cluster sum of squares (WCSS) for different cluster counts was conducted to determine the optimal number of clusters, which again suggested three clusters. The hierarchical clustering results were compared with those from k-means by visualizing clusters in the PCA-reduced feature space and analyzing cluster characteristics (Figure 5). Both clustering methods revealed distinct patterns, but the preliminary findings suggest that the clusters may not be highly meaningful due to potential issues with the data's inherent structure. Overall, the preliminary clustering analysis indicates that while the k-means and hierarchical methods can segment the data, the results may not be sufficiently informative or actionable at this stage.
+
+```{r, include=FALSE}
+# Select numeric columns for clustering
+numeric_columns <- HipKneeTrain %>% select_if(is.numeric)
+
+# Standardize features
+X_scaled <- scale(numeric_columns)
+
+# Determine optimal number of clusters using elbow plot
+set.seed(123)
+elbow_plot <- fviz_nbclust(X_scaled, kmeans, method = "wss", k.max = 10) +
+  labs(title = "Elbow Plot for Optimal k")
+
+print(elbow_plot)
+
+# Optimal K = 3
+optimal_k <- 3
+kmeans_result <- kmeans(X_scaled, centers = optimal_k, nstart = 25)
+
+# Create a new df for K-Means Clustering results
+HipKneeTrain_K_Means <- HipKneeTrain %>%
+  mutate(Cluster = as.factor(kmeans_result$cluster))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# k-means cluster plot
+cluster_plot <- fviz_cluster(kmeans_result, data = X_scaled,
+                             ellipse.type = "convex",
+                             palette = "jco",
+                             ggtheme = theme_minimal()) +
+  labs(title = "Figure 4. K-Means Clustering Results")
+
+print(cluster_plot)
+```
+
+
+```{r, include=FALSE}
+# Perform PCA
+pca_result <- prcomp(X_scaled, center = TRUE, scale. = TRUE)
+
+# Visualize variance
+fviz_eig(pca_result, addlabels = TRUE)
+
+# Factor map
+fviz_pca_var(pca_result, col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE)
+
+# PC scores, three components
+pca_scores <- as.data.frame(pca_result$x[, 1:3])
+
+# Store PCA results in a new dataframe
+HipKneeTrain_PCA <- HipKneeTrain %>%
+  select_if(is.numeric) %>%
+  bind_cols(pca_scores)
+
+# Hierarchical Clustering
+
+# Compute distance matrix
+dist_matrix <- dist(X_scaled, method = "euclidean")
+
+# Perform hierarchical clustering
+hc_result <- hclust(dist_matrix, method = "ward.D2")
+
+# Compute WCSS for different number of clusters
+wcss <- sapply(1:10, function(k) {
+  clusters <- cutree(hc_result, k)
+  cluster_data <- scale(X_scaled)
+  tot.withinss <- sum(sapply(unique(clusters), function(c) {
+    sum(dist(cluster_data[clusters == c, , drop = FALSE])^2)
+  }))
+  return(tot.withinss)
+})
+
+# Plot WCSS
+plot(1:10, wcss, type = "b", xlab = "Number of Clusters", ylab = "WCSS")
+
+# Create clusters with optimal number of clusters from WCSS plot
+k <- 3
+hc_clusters <- cutree(hc_result, k = k)
+
+# Store hierarchical clustering results in a new dataframe
+HipKneeTrain_HC <- HipKneeTrain %>%
+  mutate(HC_Cluster = as.factor(hc_clusters))
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Plot the clusters
+pca_plot_data <- cbind(pca_scores[, 1:3], Cluster = hc_clusters)
+fviz_cluster(list(data = pca_plot_data, cluster = hc_clusters),
+             ellipse.type = "convex",
+             palette = "jco",
+             ggtheme = theme_minimal(),
+             main = "Figure 5. Hierarchical Clustering Results (PCA)")
+```
+
 
 ## Initial Model 
-Give your analysis of your initial model's (1) algorithm, (2) assumptions, and (3) overfitting for your initial model, using tables, graphs, and statistics to defend choices and interpretations, and do not count toward the page limit.
-Algorithm: appropriate tables or figures are given to interpret the preliminary model results using evaluation metrics
-Assumptions: include any tests (e.g., Durbin-Watson), graphs (e.g., residuals plots), heuristics, or other diagnostics as needed
-Overfitting: control for possible overfitting, which may include but is not limited to: (1) validation with the training and testing sets, (2) cross-validation, (3) regularization or penalties, and/or (4) additional feature selection
-This will be performed in greater detail next week, so you may just give a cursory treatment to this to save you time this week. (~ 1 paragraph)
+### Algorithm
+We used a Random Forest algorithm for our initial model due to its robustness and ability to handle both regression and classification tasks, while effectively managing multicollinearity and providing insights into feature importances. The model was trained using a grid search over different mtry values and 7-fold cross-validation to identify the best performing parameters. The model's performance on the test set was evaluated using RMSE and R-squared metrics. The RMSE on the test set was 0.337, indicating that the model's predictions were fairly accurate. The R-squared value of 0.863 shows that the model explains a significant portion of the variance in the predicted readmission rates.
+
+### Assumptions
+Random Forests make minimal assumptions about the underlying data distribution, which makes them versatile. However, they assume that the data is independent and identically distributed, and the model benefits from a large number of features and observations. To validate these assumptions, we conducted residuals analysis, ensuring no patterns indicating violations of independence or homoscedasticity. The Durbin-Watson test was used to check for autocorrelation in the residuals, and residual plots were examined for any non-random patterns. The results showed that the residuals are relatively randomly distributed, with a slight right skew (Figure 6). However, the Q-Q plot indicates that there are more extreme values than should typically be expected in a normal distribution (Figure 7).
+
+```{r, include=FALSE}
+# Remove unwanted columns from the dataset
+HipKneeTrain_RF <- HipKneeTrain %>%
+  select(-State, -FacilityName, -FacilityId)
+
+# Define mtry parameter grid
+grid <- expand.grid(
+  mtry = c(2, 4, 6, 8)
+)
+
+# Define CV
+train_control <- trainControl(
+  method = "cv",         
+  number = 7,           
+  verboseIter = TRUE     
+)
+
+# Set seed 
+set.seed(123)
+
+# Train the Random Forest model with grid search
+rf_grid_search <- train(
+  PredictedReadmissionRate_HIP_KNEE ~ .,   
+  data = HipKneeTrain_RF,                    
+  method = "rf",                          
+  trControl = train_control,              
+  tuneGrid = grid,                       
+  importance = TRUE,                     
+  ntree = 100                         
+)
+
+# Remove columns from the test set to match train set
+HipKneeTest_RF <- HipKneeTest %>%
+  select(-State, -FacilityName, -FacilityId)
+
+# Make predictions on test set
+rf_predictions <- predict(rf_grid_search, newdata = HipKneeTest_RF)
+
+# Actual values
+actual_values <- HipKneeTest$PredictedReadmissionRate_HIP_KNEE
+
+# Calculate RMSE
+mse <- mean((rf_predictions - actual_values)^2)
+rmse <- sqrt(mse)
+
+# Calculate R-squared
+ss_total <- sum((actual_values - mean(actual_values))^2)
+ss_residual <- sum((rf_predictions - actual_values)^2)
+r_squared <- 1 - (ss_residual / ss_total)
+
+# Calculate residuals
+residuals_rf <- actual_values - rf_predictions
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Histogram of residuals
+ggplot(data = NULL, aes(x = residuals_rf)) +
+  geom_histogram(binwidth = 0.1, fill = "blue", alpha = 0.7, boundary = 0) +
+  labs(title = "Figure 6. Histogram of Residuals",
+       x = "Residuals",
+       y = "Frequency") +
+  theme_minimal()
+
+# QQ plot of residuals
+qqnorm(residuals_rf, main = "Figure 7. QQ Plot of Residuals")
+qqline(residuals_rf, col = "red")
+```
+
+
+### Overfitting
+To address potential overfitting, we employed several strategies:
+
+Validation with Training and Testing Sets: The model was validated using a separate test set, yielding an RMSE of 0.337 and an R-squared of 0.863, indicating good generalization to unseen data.  
+
+Cross-Validation: We used 7-fold cross-validation during the grid search to ensure the model's performance was consistent across different subsets of the data.  
+
+### Feature Importances
+The feature importances, sorted by %IncMSE and IncNodePurity, highlight which variables had the most influence on the model's predictions. These insights will guide further feature engineering and model refinement. Below are the top features by %IncMSE and IncNodePurity (Table 3):  
+
+```{r, include=FALSE}
+# Best parameters
+best_params <- rf_grid_search$bestTune
+
+# Extract feature importances
+best_rf_model <- rf_grid_search$finalModel
+feature_importances <- importance(best_rf_model)
+
+# Convert feature importances to a df
+feature_importances_df <- as.data.frame(feature_importances)
+feature_importances_df$Feature <- rownames(feature_importances_df)
+
+# Sort importances by %IncMSE
+sorted_by_inc_mse <- feature_importances_df %>%
+  arrange(desc(`%IncMSE`))
+
+# Sort importances by IncNodePurity
+sorted_by_inc_node_purity <- feature_importances_df %>%
+  arrange(desc(IncNodePurity))
+
+# Print importances
+cat("Table 3. Feature Importances by %IncMSE:\n")
+print(sorted_by_inc_mse)
+
+cat("\n Table 4. Feature Importances by IncNodePurity:\n")
+print(sorted_by_inc_node_purity)
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Combine the two sorted dataframes into one for display
+combined_importances <- data.frame(
+  Feature = sorted_by_inc_mse$Feature,
+  IncMSE = sorted_by_inc_mse$`%IncMSE`,
+  Feature2 = sorted_by_inc_node_purity$Feature,
+  IncNodePurity = sorted_by_inc_node_purity$IncNodePurity
+)
+
+kable(combined_importances, caption = "Table 3. Feature Importances by %IncMSE and IncNodePurity") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
 
 # Discussion and Next Steps
-(1-2 paragraphs) Include a summary of your key takeaways from both the Pre-processing & feature selection, as well as the initial model you ran
-Make sure to refer back to the question you've proposed
-Refer back to what you initially proposed and revise if needed! 
-Include justifications for changes, including referring back to sections, tables, or graphs in your text.
-(1-2 paragraphs) Includes a plan for next steps: Model Selection & Tuning Plan
-What additional models will you run? How will you validate them?
-What hyperparameter tuning is needed?
-Did this analysis change anything in your Analysis Plan?
+Our preprocessing and feature engineering strategy focused on addressing the data complexities identified during exploratory data analysis (EDA). We handled missing values through imputation and removed variables with high collinearity or redundancy to ensure a clean dataset suitable for modeling. Key preprocessing steps included dummy encoding of ordinal data, standardizing categorical states, and consolidating features to reduce dimensionality. This streamlined approach preserved critical information while simplifying the dataset, enhancing both model performance and interpretability.
+
+For the initial model, we selected the Random Forest algorithm due to its strength in managing diverse data types and its ability to handle multicollinearity effectively. We used a grid search with 7-fold cross-validation to fine-tune the model parameters, achieving an RMSE of 0.337 and an R-squared of 0.863 on the test set, indicating strong predictive performance. We validated model assumptions by analyzing residuals for patterns of autocorrelation and homoscedasticity. Feature importances were evaluated to refine our feature set, guiding further model enhancement. The preprocessing, feature selection, and initial modeling efforts collectively aimed to build a robust predictive model with high generalizability.
+
+Next, we will determine a threshold to categorize hospitals as "preferred" vs "non-preferred" based on the target variable, predicted readmission rate. We will then leverage L1 and L2 regularization via an Elastic Net model to determine significant risk factors. After using Elastic Net and Random Forest to find significant risk factors, these risk factors will be utilized in a neural network model and used to classify hospitals as either “preferred” or “non-preferred”. Classification ability of the neural network model will then be compared with the classification ability of the Random Forest model and Elastic Net model. All of these models will require extensive hyperparameter tuning, particularly the neural network model. 
 
 # Appendix 1: Data Dictionary
 ```{r, echo=FALSE, message=FALSE, warning=FALSE}
@@ -1360,7 +1576,252 @@ ggplot(numeric_melted, aes(x = value)) +
 
 # Appendix 3: Segmentation Analysis Code
 
+## k-means Clustering (SE)
+```{r}
+# Select numeric columns for clustering
+numeric_columns <- HipKneeTrain %>% select_if(is.numeric)
+
+# Standardize features
+X_scaled <- scale(numeric_columns)
+
+# Determine optimal number of clusters using elbow plot
+set.seed(123)
+elbow_plot <- fviz_nbclust(X_scaled, kmeans, method = "wss", k.max = 10) +
+  labs(title = "Elbow Plot for Optimal k")
+
+print(elbow_plot)
+
+# Optimal K = 3
+optimal_k <- 3
+kmeans_result <- kmeans(X_scaled, centers = optimal_k, nstart = 25)
+
+# Create a new df for K-Means Clustering results
+HipKneeTrain_K_Means <- HipKneeTrain %>%
+  mutate(Cluster = as.factor(kmeans_result$cluster))
+
+# Visualize clusters
+fviz_cluster(kmeans_result, data = X_scaled,
+             ellipse.type = "convex",
+             palette = "jco",
+             ggtheme = theme_minimal())
+
+# Cluster characteristics
+cluster_summary <- HipKneeTrain_K_Means %>%
+  group_by(Cluster) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE)
+
+print(cluster_summary)
+
+# Visualize feature distributions across clusters
+features_to_plot <- c("PredictedReadmissionRate_HIP_KNEE", "HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE", "Score_COMP_HIP_KNEE", "SAFE_USE_OF_OPIOIDS")
+
+for (feature in features_to_plot) {
+  p <- ggplot(HipKneeTrain_K_Means, aes(x = Cluster, y = .data[[feature]], fill = Cluster)) +
+    geom_boxplot() +
+    theme_minimal() +
+    labs(title = paste("Distribution of", feature, "across clusters"))
+  print(p)
+}
+```
+
+## Hierarchical Clustering (SE)
+```{r}
+# Perform PCA
+pca_result <- prcomp(X_scaled, center = TRUE, scale. = TRUE)
+
+# Visualize variance
+fviz_eig(pca_result, addlabels = TRUE)
+
+# Factor map
+fviz_pca_var(pca_result, col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE)
+
+# PC scores, three components
+pca_scores <- as.data.frame(pca_result$x[, 1:3])
+
+# Store PCA results in a new dataframe
+HipKneeTrain_PCA <- HipKneeTrain %>%
+  select_if(is.numeric) %>%
+  bind_cols(pca_scores)
+
+# Hierarchical Clustering
+
+# Compute distance matrix
+dist_matrix <- dist(X_scaled, method = "euclidean")
+
+# Perform hierarchical clustering
+hc_result <- hclust(dist_matrix, method = "ward.D2")
+
+# Compute WCSS for different number of clusters
+wcss <- sapply(1:10, function(k) {
+  clusters <- cutree(hc_result, k)
+  cluster_data <- scale(X_scaled)
+  tot.withinss <- sum(sapply(unique(clusters), function(c) {
+    sum(dist(cluster_data[clusters == c, , drop = FALSE])^2)
+  }))
+  return(tot.withinss)
+})
+
+# Plot WCSS
+plot(1:10, wcss, type = "b", xlab = "Number of Clusters", ylab = "WCSS")
+
+# Create clusters with optimal number of clusters from WCSS plot
+k <- 3
+hc_clusters <- cutree(hc_result, k = k)
+
+# Store hierarchical clustering results in a new dataframe
+HipKneeTrain_HC <- HipKneeTrain %>%
+  mutate(HC_Cluster = as.factor(hc_clusters))
+
+# Visualize clusters using first three PCs
+pca_plot_data <- cbind(pca_scores[, 1:3], Cluster = hc_clusters)
+fviz_cluster(list(data = pca_plot_data, cluster = hc_clusters),
+             ellipse.type = "convex",
+             palette = "jco",
+             ggtheme = theme_minimal(),
+             main = "Hierarchical Clustering Results (PCA)")
+
+# Analyze cluster characteristics
+hc_cluster_summary <- HipKneeTrain_HC %>%
+  group_by(HC_Cluster) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE)
+
+print(hc_cluster_summary)
+
+# Visualize feature distributions across clusters
+features_to_plot <- c("PredictedReadmissionRate_HIP_KNEE", "HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE", "Score_COMP_HIP_KNEE", "SAFE_USE_OF_OPIOIDS")
+
+for (feature in features_to_plot) {
+  p <- ggplot(HipKneeTrain_HC, aes_string(x = "HC_Cluster", y = feature, fill = "HC_Cluster")) +
+    geom_boxplot() +
+    theme_minimal() +
+    labs(title = paste("Distribution of", feature, "across Hierarchical Clusters"))
+  print(p)
+}
+```
+> This is a preliminary segmentation analysis and we would go forth and tighten/tidy this up some more. However, just initial impression, I'm not sure clustering is entirely beneficial with our dataset. What are your thoughts on our preliminary segmentation analysis? Any ideas in which we could improve our clustering to perhaps be more meaningful?
 
 # Appendix 4: Initial Model Code
+## Random Forest
+### Creating the model
+```{r}
+# Remove unwanted columns from the dataset
+HipKneeTrain_RF <- HipKneeTrain %>%
+  select(-State, -FacilityName, -FacilityId)
+
+# Define mtry parameter grid
+grid <- expand.grid(
+  mtry = c(2, 4, 6, 8)
+)
+
+# Define CV
+train_control <- trainControl(
+  method = "cv",         
+  number = 7,           
+  verboseIter = TRUE     
+)
+
+# Set seed 
+set.seed(123)
+
+# Train the Random Forest model with grid search
+rf_grid_search <- train(
+  PredictedReadmissionRate_HIP_KNEE ~ .,   
+  data = HipKneeTrain_RF,                    
+  method = "rf",                          
+  trControl = train_control,              
+  tuneGrid = grid,                       
+  importance = TRUE,                     
+  ntree = 100                         
+)
+
+# Best parameters
+best_params <- rf_grid_search$bestTune
+print(best_params)
+
+# Extract feature importances
+best_rf_model <- rf_grid_search$finalModel
+feature_importances <- importance(best_rf_model)
+
+# Convert feature importances to a df
+feature_importances_df <- as.data.frame(feature_importances)
+feature_importances_df$Feature <- rownames(feature_importances_df)
+
+# Sort importances by %IncMSE
+sorted_by_inc_mse <- feature_importances_df %>%
+  arrange(desc(`%IncMSE`))
+
+# Sort importances by IncNodePurity
+sorted_by_inc_node_purity <- feature_importances_df %>%
+  arrange(desc(IncNodePurity))
+
+# Print importances
+cat("Feature Importances by %IncMSE:\n")
+print(sorted_by_inc_mse)
+
+cat("\nFeature Importances by IncNodePurity:\n")
+print(sorted_by_inc_node_purity)
+```
+
+### Assessing Random Forest Performance
+```{r}
+# Remove columns from the test set to match train set
+HipKneeTest_RF <- HipKneeTest %>%
+  select(-State, -FacilityName, -FacilityId)
+
+# Make predictions on test set
+rf_predictions <- predict(rf_grid_search, newdata = HipKneeTest_RF)
+
+# Actual values
+actual_values <- HipKneeTest$PredictedReadmissionRate_HIP_KNEE
+
+# Calculate RMSE
+mse <- mean((rf_predictions - actual_values)^2)
+rmse <- sqrt(mse)
+
+# Calculate R-squared
+ss_total <- sum((actual_values - mean(actual_values))^2)
+ss_residual <- sum((rf_predictions - actual_values)^2)
+r_squared <- 1 - (ss_residual / ss_total)
+
+# Print RMSE and R-squared
+cat("RMSE on test set:\n")
+print(rmse)
+
+cat("\nR-squared on test set:\n")
+print(r_squared)
+```
+
+### Testing assumptions
+```{r}
+# Calculate residuals
+residuals_rf <- actual_values - rf_predictions
+
+# Residuals vs Fitted Values plot
+ggplot(data = NULL, aes(x = rf_predictions, y = residuals_rf)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess", se = FALSE, color = "blue") +
+  labs(title = "Residuals vs Fitted Values",
+       x = "Fitted Values",
+       y = "Residuals") +
+  theme_minimal()
+
+# Histogram of residuals
+ggplot(data = NULL, aes(x = residuals_rf)) +
+  geom_histogram(binwidth = 0.1, fill = "blue", alpha = 0.7, boundary = 0) +
+  labs(title = "Histogram of Residuals",
+       x = "Residuals",
+       y = "Frequency") +
+  theme_minimal()
+
+# QQ plot of residuals
+qqnorm(residuals_rf, main = "QQ Plot of Residuals")
+qqline(residuals_rf, col = "red")
+
+# Perform Durbin-Watson test for autocorrelation in residuals
+dw_test_result <- dwtest(lm(residuals_rf ~ rf_predictions))
+print(dw_test_result)
+```
 
 

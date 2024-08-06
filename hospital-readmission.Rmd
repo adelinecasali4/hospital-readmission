@@ -40,7 +40,8 @@ pacman::p_load(tidyverse,
                factoextra,
                dendextend,
                randomForest,
-               caret) 
+               caret, 
+               lmtest) 
 ```
 
 # Background and Question
@@ -97,7 +98,7 @@ A potential pitfall of our analysis plan is data quality and completeness. The d
 ### Loading the Data (AC)  
 ```{r, message=FALSE, warning=FALSE}
 # Set the directory for the data files
-filepath <- "/Users/seugley/Desktop/Data Science/DSE 6311/" 
+filepath <- "/Users/adelinecasali/Desktop/hospitals_current_data/" 
 
 # List the files in the directory that have "Hospital.csv"
 files <- list.files(path = filepath, pattern = "Hospital.csv")
@@ -1168,7 +1169,775 @@ ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   labs(title = "Figure 5. Correlation Heatmap of Numeric Variables")
 ```
-> Descriptive Statistics (Adeline)
+
+## Preprocessing the test dataset (AC)
+We are utilizing the most recent snapshot from 04/24/2024 as our test set. Utilizing this brand new data will help to ensure that our model is generalizable and useful for future analyses. 
+
+### Loading the Data 
+```{r, message=FALSE, warning=FALSE}
+# Set the directory for the data files
+filepath <- "/Users/adelinecasali/Desktop/hospitals_04_2024/" 
+
+# List the files in the directory that have "Hospital.csv"
+files <- list.files(path = filepath, pattern = "Hospital.csv")
+
+# Iterate through each file in the list
+for(f in 1:length(files)) {
+  
+# Read the CSV, clean column names to upper camel case, and store in "dat"
+    dat <- clean_names(read_csv(paste0(filepath, files[f]),
+                                show_col_types = FALSE), 
+                       case = "upper_camel")
+    
+# Remove ".Hospital.csv" part of the file names to create variable name
+    filename <- gsub(".Hospital\\.csv", "", files[f])
+    
+# Assign data to a variable with the above created name
+    assign(filename, dat)
+}
+# Create a df of file names without ".Hospital.csv"
+files <- gsub(".Hospital\\.csv", "", files) %>% data.frame()
+
+# Set column name of the df to "File Name"
+names(files) <- "File Name"
+
+files %>% 
+  kable(
+    format = "html",
+    caption = "Table 1. List of hospital-level data files.") %>%
+    kable_styling(bootstrap_options = c("striped", full_width = F)
+  )
+```
+
+### Exploring and Preprocessing the FY_2024_Hospital_Readmissions_Reduction_Program dataset (AC)  
+
+#### Viewing and checking for missing values  
+```{r}
+# Display first 10 rows of FY_2024_Hospital_Readmissions_Reduction_Program 
+head(FY_2024_Hospital_Readmissions_Reduction_Program,10)
+
+# Filter dataset to include numeric columns only
+num_vars <- FY_2024_Hospital_Readmissions_Reduction_Program %>%
+  select_if(is.numeric)
+
+# Check for missing values
+miss_vals <- sapply(num_vars, function(x) sum(is.na(x)))
+print(miss_vals)
+```
+
+#### Replacing values with NA and "Too Few to Report" values with "5"  
+```{r}
+# Use the function "replace_with_na_all()" to replace aberrant values with NA
+FY_2024_Hospital_Readmissions_Reduction_Program <- replace_with_na_all(FY_2024_Hospital_Readmissions_Reduction_Program, condition = ~ .x == "N/A")
+
+# Replace "Too Few to Report" values with "5" in using gsub
+FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions <- gsub("Too Few to Report", "5", FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions)
+
+# Check first 10 rows to confirm that it worked
+head(FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions, 10)
+
+# NumberOfReadmissions had to be converted to numeric before applying integers
+FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions <- as.numeric(FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions)
+
+# Find all values of "5" in NumberOfReadmissions
+fives <- which(FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions == 5)
+
+# Replace values of "5" with random integers from 1 - 10
+FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions[fives] <- sample(1:10, length(fives), replace = TRUE)
+
+# Check the first 20 rows to see if this was applied correctly
+head(FY_2024_Hospital_Readmissions_Reduction_Program$NumberOfReadmissions,20)
+```
+
+#### Converting columns to numeric  
+```{r}
+# Selecting the columns to convert
+columns_to_convert <- c("NumberOfDischarges", "ExcessReadmissionRatio", "PredictedReadmissionRate", "ExpectedReadmissionRate", "NumberOfReadmissions")
+
+# Use mutate_at to convert the specified columns to numeric
+FY_2024_Hospital_Readmissions_Reduction_Program <- FY_2024_Hospital_Readmissions_Reduction_Program %>%
+  mutate_at(vars(one_of(columns_to_convert)), as.numeric)
+
+# Print the structure of the dataframe to check the changes
+str(FY_2024_Hospital_Readmissions_Reduction_Program)
+```
+
+#### Removing excess text from measure names
+```{r}
+FY_2024_Hospital_Readmissions_Reduction_Program <-  FY_2024_Hospital_Readmissions_Reduction_Program %>%
+  mutate(MeasureName = gsub("READM-30-", "", MeasureName)) %>% 
+  mutate(MeasureName = gsub("-HRRP", "", MeasureName)) 
+```
+
+#### Pivoting the data wider  
+```{r}
+readmissionsClean <- FY_2024_Hospital_Readmissions_Reduction_Program %>%
+  pivot_wider(
+    names_from = MeasureName, 
+    values_from = c(NumberOfDischarges, ExcessReadmissionRatio, PredictedReadmissionRate, ExpectedReadmissionRate, NumberOfReadmissions), 
+    id_cols = c(FacilityName, FacilityId, State, StartDate, EndDate)
+  )
+
+# Check the new dataframe
+dim(readmissionsClean)
+head(readmissionsClean)
+```
+
+#### Filtering for only hip/knee conditions
+```{r}
+readmissionsClean <- readmissionsClean %>%
+  select(FacilityName, FacilityId, State, matches("HIP-KNEE$"))
+```
+
+### Exploring and Preprocessing the HCAHPS dataset 
+
+#### Viewing and checking for missing values  
+```{r}
+# Display first 10 rows of HCAHPS 
+head(HCAHPS,10)
+
+# Filter dataset to include numeric columns only
+num_vars <- HCAHPS %>%
+  select_if(is.numeric)
+
+# Check for missing values
+miss_vals <- sapply(num_vars, function(x) sum(is.na(x)))
+print(miss_vals)
+```
+
+#### Removing footnote columns and replacing NA values  
+```{r}
+# Removing all footnote columns
+HCAHPS <- HCAHPS %>%
+  select(-ends_with("footnote"))
+
+# Replacing all "Not Applicable" with NA
+HCAHPS <- as.data.frame(sapply(HCAHPS, function(x) {
+  if (is.character(x)) {
+    x[x == "Not Applicable"] <- NA
+  }
+  return(x)
+}))
+
+# Replacing all "Not Available" with NA
+HCAHPS <- as.data.frame(sapply(HCAHPS, function(x) {
+  if (is.character(x)) {
+    x[x == "Not Available"] <- NA
+  }
+  return(x)
+}))
+```
+
+#### Pivoting the data wider  
+```{r}
+HCAHPSClean <- HCAHPS %>%
+  pivot_wider(
+    names_from = HcahpsMeasureId, 
+    values_from = c(PatientSurveyStarRating, HcahpsAnswerPercent, HcahpsLinearMeanValue, SurveyResponseRatePercent), 
+    id_cols = c(FacilityName, FacilityId, State)
+  )
+
+# Check the new dataframe
+dim(HCAHPSClean)
+head(HCAHPSClean)
+```
+
+### Exploring and Preprocessing the Timely_and_Effective_Care dataset 
+
+#### Viewing and checking for missing values  
+```{r}
+# Display first 10 rows of Timely_and_Effective_Care
+head(Timely_and_Effective_Care,10)
+
+# Filter dataset to include numeric columns only
+num_vars <- Timely_and_Effective_Care %>%
+  select_if(is.numeric)
+
+# Check for missing values
+miss_vals <- sapply(num_vars, function(x) sum(is.na(x)))
+print(miss_vals)
+```
+
+#### Replacing NA values  
+```{r}
+# Replacing all "Not Applicable" with NA
+Timely_and_Effective_Care <- as.data.frame(sapply(Timely_and_Effective_Care, function(x) {
+  if (is.character(x)) {
+    x[x == "Not Applicable"] <- NA
+  }
+  return(x)
+}))
+
+# Replacing all "Not Available" with NA
+Timely_and_Effective_Care <- as.data.frame(sapply(Timely_and_Effective_Care, function(x) {
+  if (is.character(x)) {
+    x[x == "Not Available"] <- NA
+  }
+  return(x)
+}))
+```
+
+#### Pivoting the data wider  
+```{r}
+careClean <- Timely_and_Effective_Care %>%
+  pivot_wider(
+    names_from = MeasureId, 
+    values_from = c(Score), 
+    id_cols = c(FacilityName, FacilityId, State)
+  )
+
+# Check the new dataframe
+dim(careClean)
+head(careClean)
+```
+
+### Exploring and Preprocessing the Complications_and_Deaths dataset
+
+#### Viewing and checking for missing values  
+```{r}
+# Display first 10 rows of Complications_and_Deaths
+head(Complications_and_Deaths,10)
+
+# Filter dataset to include numeric columns only
+num_vars <- Complications_and_Deaths %>%
+  select_if(is.numeric)
+
+# Check for missing values
+miss_vals <- sapply(num_vars, function(x) sum(is.na(x)))
+print(miss_vals)
+```
+
+#### Replacing NA values  
+```{r}
+# Replacing all "Not Applicable" with NA
+Complications_and_Deaths <- as.data.frame(sapply(Complications_and_Deaths, function(x) {
+  if (is.character(x)) {
+    x[x == "Not Applicable"] <- NA
+  }
+  return(x)
+}))
+
+# Replacing all "Not Available" with NA
+Complications_and_Deaths <- as.data.frame(sapply(Complications_and_Deaths, function(x) {
+  if (is.character(x)) {
+    x[x == "Not Available"] <- NA
+  }
+  return(x)
+}))
+```
+
+#### Pivoting the data wider  
+```{r}
+deathsClean <- Complications_and_Deaths %>%
+  pivot_wider(
+    names_from = MeasureId, 
+    values_from = c(ComparedToNational, Score), 
+    id_cols = c(FacilityName, FacilityId, State)
+  )
+
+# Check the new dataframe
+dim(deathsClean)
+head(deathsClean)
+```
+
+### Exploring and Preprocessing the Payment_and_Value_of_Care dataset 
+
+#### Viewing and checking for missing values  
+```{r}
+# Display first 10 rows of Payment_and_Value_of_Care
+head(Payment_and_Value_of_Care,10)
+
+# Filter dataset to include numeric columns only
+num_vars <- Payment_and_Value_of_Care %>%
+  select_if(is.numeric)
+
+# Check for missing values
+miss_vals <- sapply(num_vars, function(x) sum(is.na(x)))
+print(miss_vals)
+```
+
+#### Replacing NA values  
+```{r}
+# Replacing all "Not Applicable" with NA
+Payment_and_Value_of_Care <- as.data.frame(sapply(Payment_and_Value_of_Care, function(x) {
+  if (is.character(x)) {
+    x[x == "Not Applicable"] <- NA
+  }
+  return(x)
+}))
+
+# Replacing all "Not Available" with NA
+Payment_and_Value_of_Care <- as.data.frame(sapply(Payment_and_Value_of_Care, function(x) {
+  if (is.character(x)) {
+    x[x == "Not Available"] <- NA
+  }
+  return(x)
+}))
+```
+
+#### Pivoting the data wider  
+```{r}
+paymentClean <- Payment_and_Value_of_Care %>%
+  pivot_wider(
+    names_from = PaymentMeasureId, 
+    values_from = c(PaymentCategory, Payment), 
+    id_cols = c(FacilityName, FacilityId, State)
+  )
+
+# Check the new dataframe
+dim(paymentClean)
+head(paymentClean)
+```
+
+#### Selecting only Hip-Knee related  
+```{r}
+paymentClean <- paymentClean %>%
+  select(FacilityName, FacilityId, State, matches("HIP_KNEE$"))
+```
+
+### Joining and cleaning the datasets  
+
+#### Joining the datasets based on FacilityId
+```{r}
+HipKneeCleanTest <- readmissionsClean %>%
+  full_join(HCAHPSClean, by = "FacilityId") %>%
+  full_join(careClean, by = "FacilityId") %>%
+  full_join(deathsClean, by = "FacilityId") %>%
+  full_join(paymentClean, by = "FacilityId")
+
+head(HipKneeCleanTest)
+```
+
+#### Removing redundant columns  
+```{r}
+# Removing duplicate columns
+HipKneeCleanTest <- HipKneeCleanTest %>%
+  select(-matches("\\.(x|y|z|w|v)$"))
+```
+
+#### Checking for NA Values  
+```{r, results='hide'}
+# Checking the dimensions
+dim(HipKneeCleanTest)
+
+# Count NA values in each column
+na_counts <- sapply(HipKneeCleanTest, function(x) sum(is.na(x)))
+
+# View the NA counts
+print(na_counts)
+```
+
+#### Removing columns with more than 80% NA values
+```{r, results='hide'}
+# Calculate the percentage of NA values for each column
+na_percentage <- sapply(HipKneeCleanTest, function(x) mean(is.na(x)))
+
+# Remove columns where more than 80% of the values are NA
+HipKneeCleanTest <- HipKneeCleanTest[, na_percentage <= 0.8]
+
+# Count NA values in each column
+na_counts <- sapply(HipKneeCleanTest, function(x) sum(is.na(x)))
+
+# View the NA counts
+print(na_counts)
+
+# Check the dimensions
+dim(HipKneeCleanTest)
+```
+
+#### Removing answer percent and survey response percent columns
+```{r}
+# Remove columns containing 'AnswerPercent' or 'SurveyResponseRate'
+HipKneeCleanTest <- HipKneeCleanTest %>%
+  select(-matches("AnswerPercent|SurveyResponseRate"))
+
+# Check the dimensions
+dim(HipKneeCleanTest)
+```
+
+#### Removing compared to national columns  
+```{r}
+# Remove columns containing 'ComparedToNational' and 'PaymentCategory'
+HipKneeCleanTest <- HipKneeCleanTest %>%
+  select(-matches("ComparedToNational|PaymentCategory"))
+
+# Check the dimensions
+dim(HipKneeCleanTest)
+```
+
+#### Checking data structure
+```{r}
+str(HipKneeCleanTest)
+
+# Convert columns to numeric
+HipKneeCleanTest <- HipKneeCleanTest %>%
+  mutate_at(vars(starts_with("PatientSurveyStarRating_"), 
+                 starts_with("HcahpsLinearMeanValue_"), 
+                 starts_with("Score_"),
+                 starts_with("ED_"),
+                 starts_with("IMM_"),
+                 starts_with("OP_"),
+                 starts_with("SEP_"),
+                 starts_with("SEV_"),
+                 starts_with("STK_"),
+                 starts_with("VTE_"),
+                 starts_with("SAFE_"),
+                 starts_with("HCP_")),
+            ~ as.numeric(as.character(.)))
+
+# View the structure
+str(HipKneeCleanTest)
+```
+
+#### Fixing the payment column
+```{r}
+# Remove $ and , and convert to numeric
+HipKneeCleanTest <- HipKneeCleanTest %>%
+  mutate_at(vars(starts_with("Payment_")), 
+            ~ as.numeric(gsub("[\\$,]", "", .)))
+
+# Checking the structure
+str(HipKneeCleanTest)
+```
+
+### Encoding categorical variables
+
+#### Identify Categorical Variables
+```{r}
+# Create function to find categorical variables
+is_categorical <- function(x) is.factor(x) | is.character(x)
+
+# Apply function to all variables in the dataset
+categorical_vars <- sapply(HipKneeClean, is_categorical)
+
+# Print the names of all categorical variables
+categorical <- names(HipKneeClean)[categorical_vars]
+categorical
+```
+
+#### Dummy encode the EDV column 
+```{r}
+# Define the encoding mapping (ignore NAs for now)
+encoding_map <- c(
+  'low' = 1,
+  'medium' = 2,
+  'high' = 3,
+  'very high' = 4
+)
+# Dummy encoding used due to ordinal nature of this data
+
+# Create a copy of HipKneeCleanTest and name it HipKneeTest to separate cleaned dataset and the test dataset
+HipKneeTest <- HipKneeCleanTest %>%
+  mutate(EDV = recode(EDV, !!!encoding_map))
+
+# Print first 20 rows of EDV column in HipKneeClean and HipKneeTrain to ensure proper encoding
+cat("HipKneeCleanTest")
+print(head(HipKneeCleanTest$EDV, 20))
+
+cat("HipKneeTest")
+print(head(HipKneeTest$EDV, 20))
+```
+
+#### Encode each state in alphabetical order
+```{r}
+# Manually map out each state with their respective code in alphabetical order with a preceding 0 to make data non-ordinal
+state_mapping <- c(
+  "AL" = "001",
+  "AK" = "002",
+  "AZ" = "003",
+  "AR" = "004",
+  "CA" = "005",
+  "CO" = "006",
+  "CT" = "007",
+  "DE" = "008",
+  "FL" = "009",
+  "GA" = "010",
+  "HI" = "011",
+  "ID" = "012",
+  "IL" = "013",
+  "IN" = "014",
+  "IA" = "015",
+  "KS" = "016",
+  "KY" = "017",
+  "LA" = "018",
+  "ME" = "019",
+  "MD" = "020",
+  "MA" = "021",
+  "MI" = "022",
+  "MN" = "023",
+  "MS" = "024",
+  "MO" = "025",
+  "MT" = "026",
+  "NE" = "027",
+  "NV" = "028",
+  "NH" = "029",
+  "NJ" = "030",
+  "NM" = "031",
+  "NY" = "032",
+  "NC" = "033",
+  "ND" = "034",
+  "OH" = "035",
+  "OK" = "036",
+  "OR" = "037",
+  "PA" = "038",
+  "RI" = "039",
+  "SC" = "040",
+  "SD" = "041",
+  "TN" = "042",
+  "TX" = "043",
+  "UT" = "044",
+  "VT" = "045",
+  "VA" = "046",
+  "WA" = "047",
+  "WV" = "048",
+  "WI" = "049",
+  "WY" = "050"
+)
+
+# Create new "StateCode" column with the encoded values
+HipKneeTest <- HipKneeTest %>%
+  mutate(StateCode = state_mapping[State])
+
+# Print 100 rows of the "State" and "StateCode" columns to ensure accuracy
+print("State and StateCode Columns")
+print(head(HipKneeTest[c("State", "StateCode")], 100))
+
+# Print all unique values in "StateCode" column to ensure accuracy
+print("Unique StateCode Values")
+print(unique(HipKneeTest$StateCode))
+```
+
+### Collinearity and Feature Removal
+
+#### Remove correlated and unnecessary variables 
+```{r}
+# Specify columns to remove
+columns_to_remove <- c(
+  "ED_2_Strata_1",
+  "OP_23",
+  "VTE_2",
+  "OP_18c",
+  "OP_22",
+  "STK_02",
+  "STK_05",
+  "STK_06",
+  "HcahpsLinearMeanValue_H_RECMND_LINEAR_SCORE",
+  "NumberOfReadmissions_HIP-KNEE",
+  "ExcessReadmissionRatio_HIP-KNEE",
+  "ExpectedReadmissionRate_HIP-KNEE",
+  "SEP_1",
+  "SEV_SEP_6HR",
+  "SEV_SEP_3HR",
+  "SEP_SH_6HR",
+  "SEP_SH_3HR",
+  "Score_PSI_90",
+  "PatientSurveyStarRating_H_COMP_1_STAR_RATING",    
+  "PatientSurveyStarRating_H_COMP_2_STAR_RATING",    
+  "PatientSurveyStarRating_H_COMP_3_STAR_RATING",    
+  "PatientSurveyStarRating_H_COMP_5_STAR_RATING",    
+  "PatientSurveyStarRating_H_COMP_6_STAR_RATING",    
+  "PatientSurveyStarRating_H_COMP_7_STAR_RATING",    
+  "PatientSurveyStarRating_H_CLEAN_STAR_RATING",     
+  "PatientSurveyStarRating_H_QUIET_STAR_RATING",     
+  "PatientSurveyStarRating_H_HSP_RATING_STAR_RATING",
+  "PatientSurveyStarRating_H_RECMND_STAR_RATING",    
+  "PatientSurveyStarRating_H_STAR_RATING",
+  "HcahpsLinearMeanValue_H_COMP_1_LINEAR_SCORE",    
+  "HcahpsLinearMeanValue_H_COMP_2_LINEAR_SCORE",    
+  "HcahpsLinearMeanValue_H_COMP_3_LINEAR_SCORE",    
+  "HcahpsLinearMeanValue_H_COMP_5_LINEAR_SCORE",    
+  "HcahpsLinearMeanValue_H_COMP_6_LINEAR_SCORE",    
+  "HcahpsLinearMeanValue_H_COMP_7_LINEAR_SCORE",    
+  "HcahpsLinearMeanValue_H_CLEAN_LINEAR_SCORE",     
+  "HcahpsLinearMeanValue_H_QUIET_LINEAR_SCORE"
+)
+
+# Remove specified columns
+HipKneeTest <- HipKneeTest %>% select(-all_of(columns_to_remove))
+```
+
+```{r}
+# Print column names to verify
+print("Remaining columns:")
+print(colnames(HipKneeTest))
+```
+
+#### Reassess collinearity with heatmap and correlation matrix
+```{r, fig.width=14, fig.height=15}
+# Compute correlation matrix
+cor_matrix <- cor(HipKneeTest %>% select_if(is.numeric), use = "pairwise.complete.obs")
+
+# Melt the correlation matrix into a long format
+cor_melted <- melt(cor_matrix)
+
+# Plot heatmap
+ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), name = "Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Figure 5. Correlation Heatmap of Numeric Variables")
+
+# Convert correlation matrix to df
+cor_table <- as.data.frame(cor_matrix)
+
+# Add variable names as a column
+cor_table$Variable <- rownames(cor_table)
+
+# Reorder columns
+cor_table <- cor_table %>%
+  select(Variable, everything())
+
+# Print table
+cor_table %>%
+  kable(caption = "Table 8. Correlation Coefficients Table") %>%
+  kable_styling(bootstrap_options = c("hover", "striped", "responsive"))
+```
+
+### Imputation and Handling of Missing Values
+
+```{r}
+# Change - to _ in HIP-KNEE
+colnames(HipKneeTest) <- gsub("-", "_", colnames(HipKneeTest))
+
+# Remove all NA values in target variable "PredictedReadmissionRate_HIP_KNEE"
+HipKneeTest <- HipKneeTest %>% filter(!is.na(PredictedReadmissionRate_HIP_KNEE))
+
+# Remove all NA values in the "State", "StateCode", and "FacilityName" columns
+HipKneeTest <- HipKneeTest %>% drop_na(State, StateCode, FacilityName)
+
+
+# Print number of remaining variables and observations
+dimensions <- dim(HipKneeTest)
+cat("Number of variables:", dimensions[2], "\n")
+cat("Number of observations:", dimensions[1], "\n")
+```
+
+```{r}
+# Calculate missing values
+missing_values_summary <- HipKneeTest %>%
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Missing_Count") %>%
+  mutate(Missing_Percentage = (Missing_Count / nrow(HipKneeTest)) * 100)
+
+# Print table
+missing_values_summary %>%
+  kable(caption = "Table 7. Missing Values Summary") %>%
+  kable_styling(bootstrap_options = c("hover", "striped", "responsive"))
+```
+
+#### Impute variables with low percentage missingness (<5%) by the median for numeric variables and mode for categorical variables
+```{r}
+# Calculate median for columns with <5% missing values
+numeric_vars_low_missing <- c("HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE", "EDV", "HCP_COVID_19", "IMM_3", "OP_18b", "SAFE_USE_OF_OPIOIDS", "Score_COMP_HIP_KNEE", "Score_PSI_03", "Score_PSI_06", "Score_PSI_08", "Score_PSI_09", "Score_PSI_10", "Score_PSI_11", "Score_PSI_12", "Score_PSI_13", "Score_PSI_14", "Score_PSI_15", "Payment_PAYM_90_HIP_KNEE")
+
+for (var in numeric_vars_low_missing) {
+  HipKneeTest[[var]][is.na(HipKneeTest[[var]])] <- median(HipKneeTest[[var]], na.rm = TRUE)
+}
+```
+
+#### Impute high percentage missingness variables (>5%) using KNN
+```{r}
+# Select high missingness variables for KNN imputation
+vars_for_knn <- c("VTE_1", "Score_MORT_30_AMI", "Score_MORT_30_COPD", "Score_MORT_30_HF", "Score_MORT_30_PN", "Score_MORT_30_STK", "Score_PSI_04", "OP_29")
+
+# Perform KNN imputation
+HipKneeTest_knn <- kNN(HipKneeTest, variable = vars_for_knn, k = 5)
+
+# Remove columns created by the KNN function
+HipKneeTest_knn <- HipKneeTest_knn %>% select(-ends_with("_imp"))
+
+# Update HipKneeTrain with imputed values
+HipKneeTest[vars_for_knn] <- HipKneeTest_knn[vars_for_knn]
+```
+
+```{r}
+# Calculate missing values
+missing_values_summary <- HipKneeTest %>%
+  summarise(across(everything(), ~ sum(is.na(.)))) %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Missing_Count") %>%
+  mutate(Missing_Percentage = (Missing_Count / nrow(HipKneeTest)) * 100)
+
+# Print table
+missing_values_summary %>%
+  kable(caption = "Table 7. Missing Values Summary") %>%
+  kable_styling(bootstrap_options = c("hover", "striped", "responsive"))
+```
+
+#### Feature Engineer Mortality Data 
+```{r}
+# Average death rates amongst mortality variables and create new column "Score_Ovr_MORT"
+HipKneeTest$Score_Ovr_MORT <- rowMeans(HipKneeTest[, c("Score_MORT_30_AMI", 
+                                                         "Score_MORT_30_COPD", 
+                                                         "Score_MORT_30_HF", 
+                                                         "Score_MORT_30_PN", 
+                                                         "Score_MORT_30_STK")], 
+                                                          na.rm = TRUE)
+
+# Remove old mortality columns
+HipKneeTest <- HipKneeTest[, !(names(HipKneeTest) %in% c("Score_MORT_30_AMI", 
+                                                            "Score_MORT_30_COPD",
+                                                            "Score_MORT_30_HF", 
+                                                            "Score_MORT_30_PN", 
+                                                            "Score_MORT_30_STK"))]
+
+```
+
+#### Reassess heatmap with engineered mortality data
+```{r, fig.width=14, fig.height=15}
+# Compute correlation matrix
+cor_matrix <- cor(HipKneeTest %>% select_if(is.numeric), use = "pairwise.complete.obs")
+
+# Melt the correlation matrix into a long format
+cor_melted <- melt(cor_matrix)
+
+# Plot heatmap
+ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), name = "Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Figure 5. Correlation Heatmap of Numeric Variables")
+```
+
+#### Save the data for future ease of use
+```{r}
+save(HipKneeTest, file = "HipKneeTest.RData")
+```
+
+## Descriptive Statistics (AC)
+```{r}
+# Create a summary table of descriptive statistics
+descr_stats <- describe(HipKneeTrain)
+# Remove the rows with Facility ID, State and State code, and facility name
+descr_stats <- descr_stats %>% filter(vars != c(1, 23, 24, 26))
+# Remove columns 1, 2, 5, and 6
+descr_stats <- descr_stats[, -c(1, 2, 5, 6)]
+
+# Create a table with kable
+kable(descr_stats, format = "html", caption = "Descriptive Statistics for All Numeric Variables in Final Dataset") %>%
+  kable_styling(
+    bootstrap_options = c("hover", "striped", "responsive")
+  ) %>%
+  column_spec(1, bold = TRUE) %>%
+  column_spec(2, width = "5em") %>%
+  row_spec(0, bold = TRUE, background = "#f2f2f2")
+
+# Select numeric columns
+numeric_columns <- HipKneeTrain %>% select_if(is.numeric)
+
+# Melt the data for easier plotting with ggplot2
+numeric_melted <- melt(numeric_columns)
+
+# Create histograms
+ggplot(numeric_melted, aes(x = value)) +
+  geom_histogram(bins = 30, fill = "blue", color = "black") +
+  facet_wrap(~variable, scales = "free_x") +
+  theme_minimal() +
+  labs(title = "Histograms of Numeric Variables", x = "Value", y = "Frequency")
+```
 
 
 # Segmentation Analysis  
@@ -1221,6 +1990,7 @@ for (feature in features_to_plot) {
 }
 ```
 
+## Hierarchical Clustering (SE)
 ```{r}
 # Perform PCA
 pca_result <- prcomp(X_scaled, center = TRUE, scale. = TRUE)
@@ -1300,11 +2070,13 @@ for (feature in features_to_plot) {
 
 # Supervised Modeling
 
-#### Random Forest
+## Random Forest
+
+### Creating the model
 ```{r}
 # Remove unwanted columns from the dataset
 HipKneeTrain_RF <- HipKneeTrain %>%
-  select(-StateCode, -State, -FacilityName, -FacilityId)
+  select(-State, -FacilityName, -FacilityId)
 
 # Define mtry parameter grid
 grid <- expand.grid(
@@ -1359,14 +2131,12 @@ print(sorted_by_inc_mse)
 cat("\nFeature Importances by IncNodePurity:\n")
 print(sorted_by_inc_node_purity)
 ```
-#### Assessing Random Forest Performance
-```{r}
-# Load the test set
-load("/Users/seugley/Desktop/Data Science/DSE 6311/hospital-readmission/HipKneeTest.RData")
 
+### Assessing Random Forest Performance
+```{r}
 # Remove columns from the test set to match train set
 HipKneeTest_RF <- HipKneeTest %>%
-  select(-StateCode, -State, -FacilityName, -FacilityId)
+  select(-State, -FacilityName, -FacilityId)
 
 # Make predictions on test set
 rf_predictions <- predict(rf_grid_search, newdata = HipKneeTest_RF)
@@ -1390,3 +2160,35 @@ print(rmse)
 cat("\nR-squared on test set:\n")
 print(r_squared)
 ```
+
+### Testing assumptions
+```{r}
+# Calculate residuals
+residuals_rf <- actual_values - rf_predictions
+
+# Residuals vs Fitted Values plot
+ggplot(data = NULL, aes(x = rf_predictions, y = residuals_rf)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "loess", se = FALSE, color = "blue") +
+  labs(title = "Residuals vs Fitted Values",
+       x = "Fitted Values",
+       y = "Residuals") +
+  theme_minimal()
+
+# Histogram of residuals
+ggplot(data = NULL, aes(x = residuals_rf)) +
+  geom_histogram(binwidth = 0.1, fill = "blue", alpha = 0.7, boundary = 0) +
+  labs(title = "Histogram of Residuals",
+       x = "Residuals",
+       y = "Frequency") +
+  theme_minimal()
+
+# QQ plot of residuals
+qqnorm(residuals_rf, main = "QQ Plot of Residuals")
+qqline(residuals_rf, col = "red")
+
+# Perform Durbin-Watson test for autocorrelation in residuals
+dw_test_result <- dwtest(lm(residuals_rf ~ rf_predictions))
+print(dw_test_result)
+```
+
