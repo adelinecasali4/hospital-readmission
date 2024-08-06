@@ -1101,7 +1101,7 @@ for (var in numeric_vars_low_missing) {
 vars_for_knn <- c("VTE_1", "Score_MORT_30_AMI", "Score_MORT_30_COPD", "Score_MORT_30_HF", "Score_MORT_30_PN", "Score_MORT_30_STK", "Score_PSI_04", "OP_29")
 
 # Perform KNN imputation
-HipKneeTrain_knn <- kNN(HipKneeTrain, variable = vars_for_knn, k = 5)
+HipKneeTrain_knn <- KNN(HipKneeTrain, variable = vars_for_knn, k = 5)
 
 # Remove columns created by the KNN function
 HipKneeTrain_knn <- HipKneeTrain_knn %>% select(-ends_with("_imp"))
