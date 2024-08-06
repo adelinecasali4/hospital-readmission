@@ -39,7 +39,8 @@ pacman::p_load(tidyverse,
                cluster,
                factoextra,
                dendextend,
-               randomForest) 
+               randomForest,
+               caret) 
 ```
 
 # Background and Question
@@ -1191,17 +1192,18 @@ print(elbow_plot)
 optimal_k <- 3
 kmeans_result <- kmeans(X_scaled, centers = optimal_k, nstart = 25)
 
+# Create a new df for K-Means Clustering results
+HipKneeTrain_K_Means <- HipKneeTrain %>%
+  mutate(Cluster = as.factor(kmeans_result$cluster))
+
 # Visualize clusters
 fviz_cluster(kmeans_result, data = X_scaled,
              ellipse.type = "convex",
              palette = "jco",
              ggtheme = theme_minimal())
 
-# Add cluster assignments to dataset
-HipKneeTrain$Cluster <- as.factor(kmeans_result$cluster)
-
 # Cluster characteristics
-cluster_summary <- HipKneeTrain %>%
+cluster_summary <- HipKneeTrain_K_Means %>%
   group_by(Cluster) %>%
   summarise_if(is.numeric, mean, na.rm = TRUE)
 
@@ -1211,7 +1213,7 @@ print(cluster_summary)
 features_to_plot <- c("PredictedReadmissionRate_HIP_KNEE", "HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE", "Score_COMP_HIP_KNEE", "SAFE_USE_OF_OPIOIDS")
 
 for (feature in features_to_plot) {
-  p <- ggplot(HipKneeTrain, aes(x = .data$Cluster, y = .data[[feature]], fill = .data$Cluster)) +
+  p <- ggplot(HipKneeTrain_K_Means, aes(x = Cluster, y = .data[[feature]], fill = Cluster)) +
     geom_boxplot() +
     theme_minimal() +
     labs(title = paste("Distribution of", feature, "across clusters"))
@@ -1234,6 +1236,11 @@ fviz_pca_var(pca_result, col.var = "contrib",
 # PC scores, three components
 pca_scores <- as.data.frame(pca_result$x[, 1:3])
 
+# Store PCA results in a new dataframe
+HipKneeTrain_PCA <- HipKneeTrain %>%
+  select_if(is.numeric) %>%
+  bind_cols(pca_scores)
+
 # Hierarchical Clustering
 
 # Compute distance matrix
@@ -1255,14 +1262,15 @@ wcss <- sapply(1:10, function(k) {
 # Plot WCSS
 plot(1:10, wcss, type = "b", xlab = "Number of Clusters", ylab = "WCSS")
 
-# Create clusters with optimal number of clusters from wcss plot
+# Create clusters with optimal number of clusters from WCSS plot
 k <- 3
 hc_clusters <- cutree(hc_result, k = k)
 
-# Add cluster assignments to HipKneeTrain
-HipKneeTrain$HC_Cluster <- as.factor(hc_clusters)
+# Store hierarchical clustering results in a new dataframe
+HipKneeTrain_HC <- HipKneeTrain %>%
+  mutate(HC_Cluster = as.factor(hc_clusters))
 
-# Visualize clusters using first three pcs
+# Visualize clusters using first three PCs
 pca_plot_data <- cbind(pca_scores[, 1:3], Cluster = hc_clusters)
 fviz_cluster(list(data = pca_plot_data, cluster = hc_clusters),
              ellipse.type = "convex",
@@ -1271,7 +1279,7 @@ fviz_cluster(list(data = pca_plot_data, cluster = hc_clusters),
              main = "Hierarchical Clustering Results (PCA)")
 
 # Analyze cluster characteristics
-hc_cluster_summary <- HipKneeTrain %>%
+hc_cluster_summary <- HipKneeTrain_HC %>%
   group_by(HC_Cluster) %>%
   summarise_if(is.numeric, mean, na.rm = TRUE)
 
@@ -1281,27 +1289,56 @@ print(hc_cluster_summary)
 features_to_plot <- c("PredictedReadmissionRate_HIP_KNEE", "HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE", "Score_COMP_HIP_KNEE", "SAFE_USE_OF_OPIOIDS")
 
 for (feature in features_to_plot) {
-  p <- ggplot(HipKneeTrain, aes_string(x = "HC_Cluster", y = feature, fill = "HC_Cluster")) +
+  p <- ggplot(HipKneeTrain_HC, aes_string(x = "HC_Cluster", y = feature, fill = "HC_Cluster")) +
     geom_boxplot() +
     theme_minimal() +
     labs(title = paste("Distribution of", feature, "across Hierarchical Clusters"))
   print(p)
 }
 ```
-> This is a preliminary segmentation analysis and we would go forth and tighten/tidy this up some more. However, just initial impression, I'm not sure clustering is entirely beneficial with our dataset. What are your thoughts on our preliminary segmentation analysis? Any ideas in which we could improve our clsutering to perhaps be more meaningful?
+> This is a preliminary segmentation analysis and we would go forth and tighten/tidy this up some more. However, just initial impression, I'm not sure clustering is entirely beneficial with our dataset. What are your thoughts on our preliminary segmentation analysis? Any ideas in which we could improve our clustering to perhaps be more meaningful?
 
 # Supervised Modeling
 
 #### Random Forest
 ```{r}
-# Set seed
+# Remove unwanted columns from the dataset
+HipKneeTrain_RF <- HipKneeTrain %>%
+  select(-StateCode, -State, -FacilityName, -FacilityId)
+
+# Define mtry parameter grid
+grid <- expand.grid(
+  mtry = c(2, 4, 6, 8)
+)
+
+# Define CV
+train_control <- trainControl(
+  method = "cv",         
+  number = 7,           
+  verboseIter = TRUE     
+)
+
+# Set seed 
 set.seed(123)
 
-# Train RF model
-rf_model <- randomForest(PredictedReadmissionRate_HIP_KNEE ~ ., data = HipKneeTrain, importance = TRUE, na.action = na.omit)
+# Train the Random Forest model with grid search
+rf_grid_search <- train(
+  PredictedReadmissionRate_HIP_KNEE ~ .,   
+  data = HipKneeTrain_RF,                    
+  method = "rf",                          
+  trControl = train_control,              
+  tuneGrid = grid,                       
+  importance = TRUE,                     
+  ntree = 100                         
+)
+
+# Best parameters
+best_params <- rf_grid_search$bestTune
+print(best_params)
 
 # Extract feature importances
-feature_importances <- importance(rf_model)
+best_rf_model <- rf_grid_search$finalModel
+feature_importances <- importance(best_rf_model)
 
 # Convert feature importances to a df
 feature_importances_df <- as.data.frame(feature_importances)
@@ -1322,4 +1359,34 @@ print(sorted_by_inc_mse)
 cat("\nFeature Importances by IncNodePurity:\n")
 print(sorted_by_inc_node_purity)
 ```
+#### Assessing Random Forest Performance
+```{r}
+# Load the test set
+load("/Users/seugley/Desktop/Data Science/DSE 6311/hospital-readmission/HipKneeTest.RData")
 
+# Remove columns from the test set to match train set
+HipKneeTest_RF <- HipKneeTest %>%
+  select(-StateCode, -State, -FacilityName, -FacilityId)
+
+# Make predictions on test set
+rf_predictions <- predict(rf_grid_search, newdata = HipKneeTest_RF)
+
+# Actual values
+actual_values <- HipKneeTest$PredictedReadmissionRate_HIP_KNEE
+
+# Calculate RMSE
+mse <- mean((rf_predictions - actual_values)^2)
+rmse <- sqrt(mse)
+
+# Calculate R-squared
+ss_total <- sum((actual_values - mean(actual_values))^2)
+ss_residual <- sum((rf_predictions - actual_values)^2)
+r_squared <- 1 - (ss_residual / ss_total)
+
+# Print RMSE and R-squared
+cat("RMSE on test set:\n")
+print(rmse)
+
+cat("\nR-squared on test set:\n")
+print(r_squared)
+```
