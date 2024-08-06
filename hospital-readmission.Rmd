@@ -92,7 +92,7 @@ A potential pitfall of our analysis plan is data quality and completeness. The d
 ### Loading the Data (AC)  
 ```{r, message=FALSE, warning=FALSE}
 # Set the directory for the data files
-filepath <- "/Users/seugley/Desktop/Data Science/DSE 6311/" 
+filepath <- "/Users/adelinecasali/Desktop/hospitals_current_data/" 
 
 # List the files in the directory that have "Hospital.csv"
 files <- list.files(path = filepath, pattern = "Hospital.csv")
@@ -852,7 +852,9 @@ cor_table %>%
   kable_styling(bootstrap_options = c("hover", "striped", "responsive"))
 ```
 
-# Variable Encoding
+# Preprocessing
+
+## Variable Encoding (SE)
 
 #### Identify Categorical Variables
 ```{r}
@@ -959,7 +961,7 @@ print("Unique StateCode Values")
 print(unique(HipKneeTrain$StateCode))
 ```
 
-# Collinearity and Feature Removal
+## Collinearity and Feature Removal (SE)
 
 #### Remove correlated and unnecessary variables 
 ```{r}
@@ -1056,7 +1058,7 @@ cor_table %>%
   kable_styling(bootstrap_options = c("hover", "striped", "responsive"))
 ```
 
-# Imputation and Handling of Missing Values
+## Imputation and Handling of Missing Values (AC)
 
 ```{r}
 # Remove all NA values in target variable "PredictedReadmissionRate_HIP_KNEE"
@@ -1101,7 +1103,7 @@ for (var in numeric_vars_low_missing) {
 vars_for_knn <- c("VTE_1", "Score_MORT_30_AMI", "Score_MORT_30_COPD", "Score_MORT_30_HF", "Score_MORT_30_PN", "Score_MORT_30_STK", "Score_PSI_04", "OP_29")
 
 # Perform KNN imputation
-HipKneeTrain_knn <- KNN(HipKneeTrain, variable = vars_for_knn, k = 5)
+HipKneeTrain_knn <- kNN(HipKneeTrain, variable = vars_for_knn, k = 5)
 
 # Remove columns created by the KNN function
 HipKneeTrain_knn <- HipKneeTrain_knn %>% select(-ends_with("_imp"))
@@ -1123,7 +1125,7 @@ missing_values_summary %>%
   kable_styling(bootstrap_options = c("hover", "striped", "responsive"))
 ```
 
-# Feature Engineer Mortality Data
+## Feature Engineer Mortality Data (AC)
 ```{r}
 # Average death rates amongst mortality variables and create new column "Score_Ovr_MORT"
 HipKneeTrain$Score_Ovr_MORT <- rowMeans(HipKneeTrain[, c("Score_MORT_30_AMI", 
