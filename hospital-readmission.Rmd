@@ -94,7 +94,7 @@ A potential pitfall of our analysis plan is data quality and completeness. The d
 ### Loading the Data (AC)  
 ```{r, message=FALSE, warning=FALSE}
 # Set the directory for the data files
-filepath <- "/Users/seugley/Desktop/Data Science/DSE 6311/" 
+filepath <- "/Users/adelinecasali/Desktop/hospitals_current_data/" 
 
 # List the files in the directory that have "Hospital.csv"
 files <- list.files(path = filepath, pattern = "Hospital.csv")
@@ -1168,7 +1168,9 @@ ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
 > Descriptive Statistics (Adeline)
 
 
-# Segmentation Analysis
+# Segmentation Analysis  
+
+## k-means clustering (SE)
 ```{r}
 # Select numeric columns for clustering
 numeric_columns <- HipKneeTrain %>% select_if(is.numeric)
@@ -1176,7 +1178,7 @@ numeric_columns <- HipKneeTrain %>% select_if(is.numeric)
 # Standardize features
 X_scaled <- scale(numeric_columns)
 
-# 2. Determine optimal number of clusters using elbow plot
+# Determine optimal number of clusters using elbow plot
 set.seed(123)
 elbow_plot <- fviz_nbclust(X_scaled, kmeans, method = "wss", k.max = 10) +
   labs(title = "Elbow Plot for Optimal k")
@@ -1196,19 +1198,18 @@ fviz_cluster(kmeans_result, data = X_scaled,
 # Add cluster assignments to dataset
 HipKneeTrain$Cluster <- as.factor(kmeans_result$cluster)
 
-# 6. Cluster characteristics
+# Cluster characteristics
 cluster_summary <- HipKneeTrain %>%
   group_by(Cluster) %>%
   summarise_if(is.numeric, mean, na.rm = TRUE)
 
 print(cluster_summary)
 
-# 7. Visualize feature distributions across clusters
-# Let's take a few important features as an example
+# Visualize feature distributions across clusters
 features_to_plot <- c("PredictedReadmissionRate_HIP_KNEE", "HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE", "Score_COMP_HIP_KNEE", "Payment_PAYM_90_HIP_KNEE", "SAFE_USE_OF_OPIOIDS")
 
 for (feature in features_to_plot) {
-  p <- ggplot(HipKneeTrain, aes_string(x = "Cluster", y = feature, fill = "Cluster")) +
+  p <- ggplot(HipKneeTrain, aes(x = .data$Cluster, y = .data[[feature]], fill = .data$Cluster)) +
     geom_boxplot() +
     theme_minimal() +
     labs(title = paste("Distribution of", feature, "across clusters"))
