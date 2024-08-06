@@ -818,7 +818,7 @@ missing_values_summary %>%
   kable_styling(bootstrap_options = c("hover", "striped", "responsive"))
 ```
 
-#### Assessing colinearity
+#### Assessing collinearity
 ```{r, fig.width=14, fig.height=12}
 # Compute correlation matrix
 cor_matrix <- cor(HipKneeClean %>% select_if(is.numeric), use = "pairwise.complete.obs")
@@ -960,10 +960,18 @@ print(unique(HipKneeTrain$StateCode))
 
 # Handling Collinearity
 
-#### Remove the HCAHPS average star rating variables and leave the linear score variables. 
+#### Remove the HCAHPS average star rating variables, COMP_1 through COMP_7 linear score variables, and CLEAN and QUIET linear score variables. 
 ```{r}
-# Remove all the average patient survey star rating variables
+library(tidyverse)
+
+# Specify columns to remove
 columns_to_remove <- c(
+  "SEP_1",
+  "SEV_SEP_6HR",
+  "SEV_SEP_3HR",
+  "SEP_SH_6HR",
+  "SEP_SH_3HR",
+  "Score_PSI_90",
   "PatientSurveyStarRating_H_COMP_1_STAR_RATING",    
   "PatientSurveyStarRating_H_COMP_2_STAR_RATING",    
   "PatientSurveyStarRating_H_COMP_3_STAR_RATING",    
@@ -974,17 +982,64 @@ columns_to_remove <- c(
   "PatientSurveyStarRating_H_QUIET_STAR_RATING",     
   "PatientSurveyStarRating_H_HSP_RATING_STAR_RATING",
   "PatientSurveyStarRating_H_RECMND_STAR_RATING",    
-  "PatientSurveyStarRating_H_STAR_RATING"
+  "PatientSurveyStarRating_H_STAR_RATING",
+  "HcahpsLinearMeanValue_H_COMP_1_LINEAR_SCORE",    
+  "HcahpsLinearMeanValue_H_COMP_2_LINEAR_SCORE",    
+  "HcahpsLinearMeanValue_H_COMP_3_LINEAR_SCORE",    
+  "HcahpsLinearMeanValue_H_COMP_5_LINEAR_SCORE",    
+  "HcahpsLinearMeanValue_H_COMP_6_LINEAR_SCORE",    
+  "HcahpsLinearMeanValue_H_COMP_7_LINEAR_SCORE",    
+  "HcahpsLinearMeanValue_H_CLEAN_LINEAR_SCORE",     
+  "HcahpsLinearMeanValue_H_QUIET_LINEAR_SCORE"
 )
+
+# Remove specified columns
 HipKneeTrain <- HipKneeTrain %>% select(-all_of(columns_to_remove))
 
-# Print columns to verify it worked
-print("Columns left after removing average star rating variables")
+# Print column names to verify
+print("Remaining columns:")
 print(colnames(HipKneeTrain))
-
-# Linear mean scores encompass all survey response categories in each HCAHPS measure and are converted and combined into a 0-100 linear-scaled measure score.
 ```
+> Sepsis variables removed due to unclear definition in the dataset's dictionary of what the values represent.
+> Score_PSI_90 variable removed because it's a summary of the other PSI variables. We chose to include all the individual PSI variables, which makes the summary variable redundant. 
+> We chose to remove a lot of the patient survey data due to collinearity and redundancy. The average star rating data is redundant with the linear mean score data. We decided to keep the overall hospital rating linear mean score, and the hospital recommendation linear mean score columns. We felt that these variables summarized the other, more granular, metrics. For example COMP-1 is nurse responsiveness and COMP-2 is doctor responsiveness, COMP-3 is staff responsiveness. It makes sense that a lot of these were collinear. We had considered engineering the comp features (1-7) together into a single patient experience variable, however, this was collinear with overall hospital rating and recommendation. We also chose to go with the linear mean score overall hospital rating and recommendation score, because the dataset essentially already scaled these variables for us by performing a linear transformation. 
+> It always seems a little scary removing entire chunks of variables, as we wouldn't want to miss any significant relationships between the variables. Do you think this is a wise decision? Are there any other ideas you could think of to engineer variables in a way to keep more of them? 
 
+#### Reassess collinearity with heatmap and correlation matrix
+```{r, fig.width=14, fig.height=15}
+
+library(reshape2)
+
+# Compute correlation matrix
+cor_matrix <- cor(HipKneeTrain %>% select_if(is.numeric), use = "pairwise.complete.obs")
+
+# Melt the correlation matrix into a long format
+cor_melted <- melt(cor_matrix)
+
+# Plot the heatmap
+ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1, 1), name = "Correlation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Figure 5. Correlation Heatmap of Numeric Variables")
+
+# Convert the correlation matrix to a data frame
+cor_table <- as.data.frame(cor_matrix)
+
+# Add variable names as a column for better readability
+cor_table$Variable <- rownames(cor_table)
+
+# Reorder columns for better readability
+cor_table <- cor_table %>%
+  select(Variable, everything())
+
+# Print the table using kable
+cor_table %>%
+  kable(caption = "Table 8. Correlation Coefficients Table") %>%
+  kable_styling(bootstrap_options = c("hover", "striped", "responsive"))
+```
 
 
 
