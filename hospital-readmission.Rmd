@@ -37,7 +37,9 @@ pacman::p_load(tidyverse,
                VIM,
                glmnet,
                cluster,
-               factoextra) 
+               factoextra,
+               dendextend,
+               randomForest) 
 ```
 
 # Background and Question
@@ -94,7 +96,7 @@ A potential pitfall of our analysis plan is data quality and completeness. The d
 ### Loading the Data (AC)  
 ```{r, message=FALSE, warning=FALSE}
 # Set the directory for the data files
-filepath <- "/Users/adelinecasali/Desktop/hospitals_current_data/" 
+filepath <- "/Users/seugley/Desktop/Data Science/DSE 6311/" 
 
 # List the files in the directory that have "Hospital.csv"
 files <- list.files(path = filepath, pattern = "Hospital.csv")
@@ -1206,7 +1208,7 @@ cluster_summary <- HipKneeTrain %>%
 print(cluster_summary)
 
 # Visualize feature distributions across clusters
-features_to_plot <- c("PredictedReadmissionRate_HIP_KNEE", "HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE", "Score_COMP_HIP_KNEE", "Payment_PAYM_90_HIP_KNEE", "SAFE_USE_OF_OPIOIDS")
+features_to_plot <- c("PredictedReadmissionRate_HIP_KNEE", "HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE", "Score_COMP_HIP_KNEE", "SAFE_USE_OF_OPIOIDS")
 
 for (feature in features_to_plot) {
   p <- ggplot(HipKneeTrain, aes(x = .data$Cluster, y = .data[[feature]], fill = .data$Cluster)) +
@@ -1215,5 +1217,109 @@ for (feature in features_to_plot) {
     labs(title = paste("Distribution of", feature, "across clusters"))
   print(p)
 }
+```
+
+```{r}
+# Perform PCA
+pca_result <- prcomp(X_scaled, center = TRUE, scale. = TRUE)
+
+# Visualize variance
+fviz_eig(pca_result, addlabels = TRUE)
+
+# Factor map
+fviz_pca_var(pca_result, col.var = "contrib",
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE)
+
+# PC scores, three components
+pca_scores <- as.data.frame(pca_result$x[, 1:3])
+
+# Hierarchical Clustering
+
+# Compute distance matrix
+dist_matrix <- dist(X_scaled, method = "euclidean")
+
+# Perform hierarchical clustering
+hc_result <- hclust(dist_matrix, method = "ward.D2")
+
+# Compute WCSS for different number of clusters
+wcss <- sapply(1:10, function(k) {
+  clusters <- cutree(hc_result, k)
+  cluster_data <- scale(X_scaled)
+  tot.withinss <- sum(sapply(unique(clusters), function(c) {
+    sum(dist(cluster_data[clusters == c, , drop = FALSE])^2)
+  }))
+  return(tot.withinss)
+})
+
+# Plot WCSS
+plot(1:10, wcss, type = "b", xlab = "Number of Clusters", ylab = "WCSS")
+
+# Create clusters with optimal number of clusters from wcss plot
+k <- 3
+hc_clusters <- cutree(hc_result, k = k)
+
+# Add cluster assignments to HipKneeTrain
+HipKneeTrain$HC_Cluster <- as.factor(hc_clusters)
+
+# Visualize clusters using first three pcs
+pca_plot_data <- cbind(pca_scores[, 1:3], Cluster = hc_clusters)
+fviz_cluster(list(data = pca_plot_data, cluster = hc_clusters),
+             ellipse.type = "convex",
+             palette = "jco",
+             ggtheme = theme_minimal(),
+             main = "Hierarchical Clustering Results (PCA)")
+
+# Analyze cluster characteristics
+hc_cluster_summary <- HipKneeTrain %>%
+  group_by(HC_Cluster) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE)
+
+print(hc_cluster_summary)
+
+# Visualize feature distributions across clusters
+features_to_plot <- c("PredictedReadmissionRate_HIP_KNEE", "HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE", "Score_COMP_HIP_KNEE", "SAFE_USE_OF_OPIOIDS")
+
+for (feature in features_to_plot) {
+  p <- ggplot(HipKneeTrain, aes_string(x = "HC_Cluster", y = feature, fill = "HC_Cluster")) +
+    geom_boxplot() +
+    theme_minimal() +
+    labs(title = paste("Distribution of", feature, "across Hierarchical Clusters"))
+  print(p)
+}
+```
+> This is a preliminary segmentation analysis and we would go forth and tighten/tidy this up some more. However, just initial impression, I'm not sure clustering is entirely beneficial with our dataset. What are your thoughts on our preliminary segmentation analysis? Any ideas in which we could improve our clsutering to perhaps be more meaningful?
+
+# Supervised Modeling
+
+#### Random Forest
+```{r}
+# Set seed
+set.seed(123)
+
+# Train RF model
+rf_model <- randomForest(PredictedReadmissionRate_HIP_KNEE ~ ., data = HipKneeTrain, importance = TRUE, na.action = na.omit)
+
+# Extract feature importances
+feature_importances <- importance(rf_model)
+
+# Convert feature importances to a df
+feature_importances_df <- as.data.frame(feature_importances)
+feature_importances_df$Feature <- rownames(feature_importances_df)
+
+# Sort importances by %IncMSE
+sorted_by_inc_mse <- feature_importances_df %>%
+  arrange(desc(`%IncMSE`))
+
+# Sort importances by IncNodePurity
+sorted_by_inc_node_purity <- feature_importances_df %>%
+  arrange(desc(IncNodePurity))
+
+# Print importances
+cat("Feature Importances by %IncMSE:\n")
+print(sorted_by_inc_mse)
+
+cat("\nFeature Importances by IncNodePurity:\n")
+print(sorted_by_inc_node_purity)
 ```
 
