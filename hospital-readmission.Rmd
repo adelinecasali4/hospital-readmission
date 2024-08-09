@@ -22,6 +22,7 @@ knitr::opts_chunk$set(echo = TRUE,
 # clean, set up, and load
 pacman::p_unload(pacman::p_loaded(), character.only = TRUE)
 rm(list = ls(all = TRUE))
+set.seed(123)
 
 pacman::p_load(tidyverse, 
                ggplot2, 
@@ -41,7 +42,8 @@ pacman::p_load(tidyverse,
                dendextend,
                randomForest,
                caret, 
-               lmtest) 
+               lmtest, 
+               e1071) 
 ```
 
 # Background and Question
@@ -2068,9 +2070,9 @@ for (feature in features_to_plot) {
 ```
 > This is a preliminary segmentation analysis and we would go forth and tighten/tidy this up some more. However, just initial impression, I'm not sure clustering is entirely beneficial with our dataset. What are your thoughts on our preliminary segmentation analysis? Any ideas in which we could improve our clustering to perhaps be more meaningful?
 
-# Supervised Modeling
+# Supervised Modeling with Quantitative Variable
 
-## Random Forest
+## Random Forest (SE)
 
 ### Creating the model
 ```{r}
@@ -2089,9 +2091,6 @@ train_control <- trainControl(
   number = 7,           
   verboseIter = TRUE     
 )
-
-# Set seed 
-set.seed(123)
 
 # Train the Random Forest model with grid search
 rf_grid_search <- train(
@@ -2190,5 +2189,512 @@ qqline(residuals_rf, col = "red")
 # Perform Durbin-Watson test for autocorrelation in residuals
 dw_test_result <- dwtest(lm(residuals_rf ~ rf_predictions))
 print(dw_test_result)
+```
+
+## Elastic Net (AC)
+
+### Creating the model
+```{r}
+# Separate predictors and response variable in the training set
+x_train <- as.matrix(HipKneeTrain %>% select(-c(State, FacilityName, PredictedReadmissionRate_HIP_KNEE)))
+y_train <- HipKneeTrain$PredictedReadmissionRate_HIP_KNEE
+
+# Separate predictors and response variable in the test set
+x_test <- as.matrix(HipKneeTest %>% select(-c(State, FacilityName, PredictedReadmissionRate_HIP_KNEE)))
+y_test <- HipKneeTest$PredictedReadmissionRate_HIP_KNEE
+
+# Define the grid of hyperparameters
+searchGrid <- expand.grid(.alpha = seq(0, 1, length.out = 10), 
+                          .lambda = seq(0, 5, length.out = 15))
+
+# Define the train control
+ctrl <- trainControl(method = "repeatedcv", 
+                     number = 10, 
+                     repeats = 5, 
+                     search = "grid", 
+                     verboseIter = FALSE)
+
+# Set up cross-validation
+elasticnet_model <- train(
+  x = x_train,
+  y = y_train,
+  method = "glmnet",
+  trControl = ctrl,
+  tuneGrid = searchGrid
+)
+
+# Best hyperparameters
+best_alpha <- elasticnet_model$bestTune$alpha
+best_lambda <- elasticnet_model$bestTune$lambda
+
+# Print best alpha and lambda
+print(paste("Best Alpha: ", best_alpha))
+print(paste("Best Lambda: ", best_lambda))
+```
+
+### Assessing performance
+```{r}
+# Make predictions on the test set
+predictions <- predict(elasticnet_model, newdata = x_test)
+
+# Calculate RMSE
+rmse <- sqrt(mean((predictions - y_test)^2))
+
+# Print RMSE
+print(paste("RMSE on Test Set: ", rmse))
+
+# Calculate performance metrics on the test set
+performance <- postResample(pred = predictions, obs = y_test)
+
+# Extract and print R-squared
+r_squared <- performance["Rsquared"]
+print(paste("R^2 on Test Set: ", r_squared))
+
+# Get the feature importance
+important <- varImp(elasticnet_model)$importance
+
+# View the feature importance
+important %>% 
+  mutate(Feature = rownames(important)) %>% 
+  mutate(Feature = gsub("\\.", " ", Feature)) %>% 
+  arrange(desc(Overall)) %>% 
+  ggplot(aes(y = Overall, fill = Overall, x = fct_reorder(Feature, Overall))) +
+  geom_col() + 
+  scale_fill_continuous(low = "lightblue", high = "darkblue") +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Feature importance as determined by Elastic Net",
+       x = "",
+       y = "Importance", 
+       fill = "")
+```
+
+
+## SVM (AC)
+
+### Creating the model
+#### Selecting the kernel
+```{r}
+# Convert x_train and x_test back to data frames
+x_train <- as.data.frame(x_train)
+x_test <- as.data.frame(x_test)
+
+# Ensure all columns are numeric
+x_train[] <- lapply(x_train, as.numeric)
+x_test[] <- lapply(x_test, as.numeric)
+
+# Convert y_train to a data frame
+train_data <- cbind(y_train = y_train, x_train)
+
+# Define the grid for kernel types
+searchGrid_kernel <- expand.grid(
+  .kernel = c("linear", "polynomial", "radial", "sigmoid")
+)
+
+# Train the SVM model with kernel tuning
+svm_tune_kernel <- tune(svm, 
+                        y_train ~ ., 
+                        data = train_data, 
+                        ranges = searchGrid_kernel, 
+                        tunecontrol = tune.control(
+                          sampling = "cross", 
+                          cross = 10
+                        )
+)
+
+# Extract the best kernel
+best_kernel <- svm_tune_kernel$best.model$kernel
+if (best_kernel == 0) {
+  kernel_description <- "Linear kernel"
+} else if (best_kernel == 1) {
+  kernel_description <- "Polynomial kernel"
+} else if (best_kernel == 2) {
+  kernel_description <- "Radial kernel"
+} else if (best_kernel == 3) {
+  kernel_description <- "Sigmoid kernel"
+} else {
+  kernel_description <- "Unknown kernel"
+}
+
+cat("Best Kernel Description:", kernel_description, "\n")
+```
+
+#### Tuning gamma and cost
+```{r}
+# Define the grid for gamma
+searchGrid_gamma <- expand.grid(
+  gamma = c(0.01, 0.1, 1)
+)
+
+# Train the SVM model with gamma tuning
+svm_tune_gamma <- tune(svm, 
+                       y_train ~ ., 
+                       data = train_data, 
+                       ranges = searchGrid_gamma, 
+                       kernel = "radial", 
+                       tunecontrol = tune.control(
+                         sampling = "cross", 
+                         cross = 10
+                       )
+)
+
+# Extract the best gamma
+best_gamma <- svm_tune_gamma$best.model$gamma
+cat("Best Gamma:", best_gamma, "\n")
+
+# Define the grid for cost
+searchGrid_cost <- expand.grid(
+  C = c(0.1, 1, 10)
+)
+
+# Train the SVM model with cost tuning
+svm_tune_cost <- tune(svm, 
+                      y_train ~ ., 
+                      data = train_data, 
+                      ranges = searchGrid_cost, 
+                      kernel = "radial", 
+                      tunecontrol = tune.control(
+                        sampling = "cross", 
+                        cross = 10
+                      )
+)
+
+# Extract the best cost
+best_cost <- svm_tune_cost$best.model$cost
+cat("Best Cost:", best_cost, "\n")
+```
+
+#### Create the final model
+```{r}
+# Final model with best parameters
+svm_final <- svm(y_train ~ ., 
+                  data = train_data,
+                  kernel = "radial", 
+                  C = 1, 
+                  gamma = 0.01,
+                  probability = TRUE)
+```
+
+### Assessing performance
+```{r}
+# Make predictions on the test set
+predictions <- predict(svm_final, x_test, type = "response")
+
+# Calculate RMSE
+rmse <- sqrt(mean((predictions - y_test)^2))
+cat("RMSE on Test Set:", rmse, "\n")
+
+# Calculate R-squared
+rss <- sum((y_test - predictions)^2)
+tss <- sum((y_test - mean(y_test))^2)
+r_squared <- 1 - (rss / tss)
+cat("R-squared on Test Set:", r_squared, "\n")
+```
+
+# Supervised Modeling with Qualitative Variable
+
+## Categorizing the target variable (AC)
+```{r}
+# Check for median
+print(median(HipKneeTrain$PredictedReadmissionRate_HIP_KNEE, na.rm = TRUE))
+print(median(HipKneeTest$PredictedReadmissionRate_HIP_KNEE, na.rm = TRUE))
+
+# Calculate the median of the target variable from the training data
+median_value <- median(HipKneeTrain$PredictedReadmissionRate_HIP_KNEE, na.rm = TRUE)
+
+# Categorize the target variable in the training data
+HipKneeTrain_Qual <- HipKneeTrain %>%
+  mutate(TargetCategory = ifelse(PredictedReadmissionRate_HIP_KNEE > median_value, 1, 0))
+
+# Categorize the target variable in the testing data using the median from the training data
+HipKneeTest_Qual <- HipKneeTest %>%
+  mutate(TargetCategory = ifelse(PredictedReadmissionRate_HIP_KNEE > median_value, 1, 0))
+```
+
+## Random Forest (AC)
+
+### Create the model
+```{r}
+# Remove unwanted columns from the dataset
+HipKneeTrain_QualRF <- HipKneeTrain_Qual %>%
+  select(-State, -FacilityName, -FacilityId)
+
+# Define mtry parameter grid
+grid <- expand.grid(
+  mtry = c(2, 4, 6, 8)
+)
+
+# Define CV
+train_control <- trainControl(
+  method = "cv",         
+  number = 7,           
+  verboseIter = TRUE     
+)
+
+# Train the Random Forest model with grid search
+rf_grid_search_qual <- train(
+  PredictedReadmissionRate_HIP_KNEE ~ .,   
+  data = HipKneeTrain_QualRF,                    
+  method = "rf",                          
+  trControl = train_control,              
+  tuneGrid = grid,                       
+  importance = TRUE,                     
+  ntree = 100                         
+)
+
+# Best parameters
+best_params_qual <- rf_grid_search_qual$bestTune
+print(best_params_qual)
+
+# Extract feature importances
+best_rf_model_qual <- rf_grid_search_qual$finalModel
+feature_importances_qual <- importance(best_rf_model_qual)
+
+# Convert feature importances to a df
+feature_importances_df_qual <- as.data.frame(feature_importances_qual)
+feature_importances_df_qual$Feature <- rownames(feature_importances_df_qual)
+
+# Sort importances by %IncMSE
+sorted_by_inc_mse_qual <- feature_importances_df_qual %>%
+  arrange(desc(`%IncMSE`))
+
+# Sort importances by IncNodePurity
+sorted_by_inc_node_purity_qual <- feature_importances_df_qual %>%
+  arrange(desc(IncNodePurity))
+
+# Print importances
+cat("Feature Importances by %IncMSE:\n")
+print(sorted_by_inc_mse_qual)
+
+cat("\nFeature Importances by IncNodePurity:\n")
+print(sorted_by_inc_node_purity_qual)
+```
+
+### Assessing the performance
+```{r}
+# Remove columns from the test set to match train set
+HipKneeTest_QualRF <- HipKneeTest_Qual %>%
+  select(-State, -FacilityName, -FacilityId)
+
+# Make predictions on test set
+rf_predictions_qual <- predict(rf_grid_search_qual, newdata = HipKneeTest_QualRF)
+
+# Actual values
+actual_values_qual <- HipKneeTest_Qual$PredictedReadmissionRate_HIP_KNEE
+
+# Calculate RMSE
+mse_qual <- mean((rf_predictions_qual - actual_values_qual)^2)
+rmse_qual <- sqrt(mse_qual)
+
+# Calculate R-squared
+ss_total_qual <- sum((actual_values_qual - mean(actual_values_qual))^2)
+ss_residual_qual <- sum((rf_predictions_qual - actual_values_qual)^2)
+r_squared_qual <- 1 - (ss_residual_qual / ss_total_qual)
+
+# Print RMSE and R-squared
+cat("RMSE on test set:\n")
+print(rmse_qual)
+
+cat("\nR-squared on test set:\n")
+print(r_squared_qual)
+```
+
+## Elastic Net (AC)
+
+### Creating the model
+```{r}
+# Separate predictors and response variable in the training set
+x_train_qual <- as.matrix(HipKneeTrain_Qual %>% select(-c(State, FacilityName, PredictedReadmissionRate_HIP_KNEE)))
+y_train_qual <- HipKneeTrain_Qual$PredictedReadmissionRate_HIP_KNEE
+
+# Separate predictors and response variable in the test set
+x_test_qual <- as.matrix(HipKneeTest_Qual %>% select(-c(State, FacilityName, PredictedReadmissionRate_HIP_KNEE)))
+y_test_qual <- HipKneeTest_Qual$PredictedReadmissionRate_HIP_KNEE
+
+# Define the grid of hyperparameters
+searchGrid <- expand.grid(.alpha = seq(0, 1, length.out = 10), 
+                          .lambda = seq(0, 5, length.out = 15))
+
+# Define the train control
+ctrl <- trainControl(method = "repeatedcv", 
+                     number = 10, 
+                     repeats = 5, 
+                     search = "grid", 
+                     verboseIter = FALSE)
+
+# Set up cross-validation
+elasticnet_model_qual <- train(
+  x = x_train_qual,
+  y = y_train_qual,
+  method = "glmnet",
+  trControl = ctrl,
+  tuneGrid = searchGrid
+)
+
+# Best hyperparameters
+best_alpha_qual <- elasticnet_model_qual$bestTune$alpha
+best_lambda_qual <- elasticnet_model_qual$bestTune$lambda
+
+# Print best alpha and lambda
+print(paste("Best Alpha: ", best_alpha_qual))
+print(paste("Best Lambda: ", best_lambda_qual))
+```
+
+### Assessing performance
+```{r}
+# Make predictions on the test set
+predictions_qual <- predict(elasticnet_model_qual, newdata = x_test_qual)
+
+# Calculate RMSE
+rmse_qual <- sqrt(mean((predictions_qual - y_test_qual)^2))
+
+# Print RMSE
+print(paste("RMSE on Test Set: ", rmse_qual))
+
+# Calculate performance metrics on the test set
+performance_qual <- postResample(pred = predictions_qual, obs = y_test_qual)
+
+# Extract and print R-squared
+r_squared_qual <- performance_qual["Rsquared"]
+print(paste("R^2 on Test Set: ", r_squared_qual))
+
+# Get the feature importance
+important_qual <- varImp(elasticnet_model_qual)$importance
+
+# View the feature importance
+important_qual %>% 
+  mutate(Feature = rownames(important_qual)) %>% 
+  mutate(Feature = gsub("\\.", " ", Feature)) %>% 
+  arrange(desc(Overall)) %>% 
+  ggplot(aes(y = Overall, fill = Overall, x = fct_reorder(Feature, Overall))) +
+  geom_col() + 
+  scale_fill_continuous(low = "lightblue", high = "darkblue") +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Feature importance as determined by Elastic Net",
+       x = "",
+       y = "Importance", 
+       fill = "")
+```
+
+## SVM (AC)
+
+### Creating the model
+#### Selecting the kernel
+```{r}
+# Convert x_train and x_test back to data frames
+x_train_qual <- as.data.frame(x_train_qual)
+x_test_qual <- as.data.frame(x_test_qual)
+
+# Ensure all columns are numeric
+x_train_qual[] <- lapply(x_train_qual, as.numeric)
+x_test_qual[] <- lapply(x_test_qual, as.numeric)
+
+# Convert y_train to a data frame
+train_data_qual <- cbind(y_train_qual = y_train_qual, x_train_qual)
+
+# Define the grid for kernel types
+searchGrid_kernel <- expand.grid(
+  .kernel = c("linear", "polynomial", "radial", "sigmoid")
+)
+
+# Train the SVM model with kernel tuning
+svm_tune_kernel_qual <- tune(svm, 
+                        y_train_qual ~ ., 
+                        data = train_data_qual, 
+                        ranges = searchGrid_kernel, 
+                        tunecontrol = tune.control(
+                          sampling = "cross", 
+                          cross = 10
+                        )
+)
+
+# Extract the best kernel
+best_kernel_qual <- svm_tune_kernel_qual$best.model$kernel
+if (best_kernel_qual == 0) {
+  kernel_description_qual <- "Linear kernel"
+} else if (best_kernel_qual == 1) {
+  kernel_description_qual <- "Polynomial kernel"
+} else if (best_kernel_qual == 2) {
+  kernel_description_qual <- "Radial kernel"
+} else if (best_kernel_qual == 3) {
+  kernel_description_qual <- "Sigmoid kernel"
+} else {
+  kernel_description_qual <- "Unknown kernel"
+}
+
+cat("Best Kernel Description:", kernel_description_qual, "\n")
+```
+
+#### Tuning gamma and cost
+```{r}
+# Define the grid for gamma
+searchGrid_gamma <- expand.grid(
+  gamma = c(0.01, 0.1, 1)
+)
+
+# Train the SVM model with gamma tuning
+svm_tune_gamma_qual <- tune(svm, 
+                       y_train_qual ~ ., 
+                       data = train_data_qual, 
+                       ranges = searchGrid_gamma, 
+                       kernel = "radial", 
+                       tunecontrol = tune.control(
+                         sampling = "cross", 
+                         cross = 10
+                       )
+)
+
+# Extract the best gamma
+best_gamma_qual <- svm_tune_gamma_qual$best.model$gamma
+cat("Best Gamma:", best_gamma_qual, "\n")
+
+# Define the grid for cost
+searchGrid_cost <- expand.grid(
+  C = c(0.1, 1, 10)
+)
+
+# Train the SVM model with cost tuning
+svm_tune_cost_qual <- tune(svm, 
+                      y_train_qual ~ ., 
+                      data = train_data_qual, 
+                      ranges = searchGrid_cost, 
+                      kernel = "radial", 
+                      tunecontrol = tune.control(
+                        sampling = "cross", 
+                        cross = 10
+                      )
+)
+
+# Extract the best cost
+best_cost_qual <- svm_tune_cost_qual$best.model$cost
+cat("Best Cost:", best_cost_qual, "\n")
+```
+
+#### Create the final model
+```{r}
+# Final model with best parameters
+svm_final_qual <- svm(y_train_qual ~ ., 
+                  data = train_data_qual,
+                  kernel = "radial", 
+                  C = 1, 
+                  gamma = 0.01,
+                  probability = TRUE)
+```
+
+### Assessing performance
+```{r}
+# Make predictions on the test set
+predictions_qual <- predict(svm_final_qual, x_test_qual, type = "response")
+
+# Calculate RMSE
+rmse_qual <- sqrt(mean((predictions_qual - y_test_qual)^2))
+cat("RMSE on Test Set:", rmse_qual, "\n")
+
+# Calculate R-squared
+rss_qual <- sum((y_test_qual - predictions_qual)^2)
+tss_qual <- sum((y_test_qual - mean(y_test_qual))^2)
+r_squared_qual <- 1 - (rss_qual / tss_qual)
+cat("R-squared on Test Set:", r_squared_qual, "\n")
 ```
 
