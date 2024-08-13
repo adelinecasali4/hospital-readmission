@@ -43,7 +43,10 @@ pacman::p_load(tidyverse,
                randomForest,
                caret, 
                lmtest, 
-               e1071) 
+               e1071, 
+               pROC, 
+               forcats, 
+               ROCR) 
 ```
 
 # Background and Question
@@ -2417,7 +2420,7 @@ HipKneeTest_Qual <- HipKneeTest %>%
 ```{r}
 # Remove unwanted columns from the dataset
 HipKneeTrain_QualRF <- HipKneeTrain_Qual %>%
-  select(-State, -FacilityName, -FacilityId)
+  select(-State, -FacilityName, -FacilityId, -PredictedReadmissionRate_HIP_KNEE)
 
 # Define mtry parameter grid
 grid <- expand.grid(
@@ -2431,9 +2434,12 @@ train_control <- trainControl(
   verboseIter = TRUE     
 )
 
+# Ensure the target variable is a factor
+HipKneeTrain_QualRF$TargetCategory <- as.factor(HipKneeTrain_QualRF$TargetCategory)
+
 # Train the Random Forest model with grid search
 rf_grid_search_qual <- train(
-  PredictedReadmissionRate_HIP_KNEE ~ .,   
+  TargetCategory ~ .,   
   data = HipKneeTrain_QualRF,                    
   method = "rf",                          
   trControl = train_control,              
@@ -2454,127 +2460,146 @@ feature_importances_qual <- importance(best_rf_model_qual)
 feature_importances_df_qual <- as.data.frame(feature_importances_qual)
 feature_importances_df_qual$Feature <- rownames(feature_importances_df_qual)
 
-# Sort importances by %IncMSE
-sorted_by_inc_mse_qual <- feature_importances_df_qual %>%
-  arrange(desc(`%IncMSE`))
+# Rename columns for clarity
+colnames(feature_importances_df_qual) <- c("MeanDecreaseAccuracy", "MeanDecreaseGini", "Feature")
 
-# Sort importances by IncNodePurity
-sorted_by_inc_node_purity_qual <- feature_importances_df_qual %>%
-  arrange(desc(IncNodePurity))
+# Sort by MeanDecreaseGini
+sorted_by_importance_qual <- feature_importances_df_qual[order(-feature_importances_df_qual$MeanDecreaseGini), ]
 
-# Print importances
-cat("Feature Importances by %IncMSE:\n")
-print(sorted_by_inc_mse_qual)
-
-cat("\nFeature Importances by IncNodePurity:\n")
-print(sorted_by_inc_node_purity_qual)
+# Print the sorted table
+print(sorted_by_importance_qual)
 ```
 
 ### Assessing the performance
 ```{r}
 # Remove columns from the test set to match train set
 HipKneeTest_QualRF <- HipKneeTest_Qual %>%
-  select(-State, -FacilityName, -FacilityId)
+  select(-State, -FacilityName, -FacilityId, -PredictedReadmissionRate_HIP_KNEE)
 
-# Make predictions on test set
-rf_predictions_qual <- predict(rf_grid_search_qual, newdata = HipKneeTest_QualRF)
+# Ensure the target variable is a factor
+HipKneeTest_QualRF$TargetCategory <- as.factor(HipKneeTest_QualRF$TargetCategory)
 
-# Actual values
-actual_values_qual <- HipKneeTest_Qual$PredictedReadmissionRate_HIP_KNEE
+# Predict on the test set
+pred_rf_qual <- predict(rf_grid_search_qual, newdata = HipKneeTest_QualRF)
 
-# Calculate RMSE
-mse_qual <- mean((rf_predictions_qual - actual_values_qual)^2)
-rmse_qual <- sqrt(mse_qual)
+# Calculate accuracy
+accuracy_rf_qual <- mean(pred_rf_qual == HipKneeTest_QualRF$TargetCategory)
+cat("Accuracy of the Random Forest Model:", accuracy_rf_qual, "\n")
 
-# Calculate R-squared
-ss_total_qual <- sum((actual_values_qual - mean(actual_values_qual))^2)
-ss_residual_qual <- sum((rf_predictions_qual - actual_values_qual)^2)
-r_squared_qual <- 1 - (ss_residual_qual / ss_total_qual)
+# Calculate the confusion matrix
+conf_matrix_rf_qual <- confusionMatrix(pred_rf_qual, HipKneeTest_QualRF$TargetCategory)
 
-# Print RMSE and R-squared
-cat("RMSE on test set:\n")
-print(rmse_qual)
+# Print the confusion matrix
+print(conf_matrix_rf_qual)
 
-cat("\nR-squared on test set:\n")
-print(r_squared_qual)
+# Predict on the test set
+pred_rf_qual <- predict(rf_grid_search_qual, newdata = HipKneeTest_QualRF, type = "prob")
+
+# Extract the predicted probabilities for the positive class (assuming "1" is the positive class)
+pred_prob_pos <- pred_rf_qual[, "1"]
+
+# Generate predictions object for ROCR
+pred <- prediction(pred_prob_pos, HipKneeTest_QualRF$TargetCategory)
+
+# Calculate and plot ROC curve
+roc_curve <- performance(pred, "tpr", "fpr")
+plot(roc_curve, main = "ROC Curve for Random Forest Model", col = "blue")
+
+# Calculate AUC
+auc <- performance(pred, "auc")@y.values[[1]]
+print(paste("AUC:", auc))
 ```
 
-## Elastic Net (AC)
+## Logistic Regression (AC)
 
 ### Creating the model
 ```{r}
+# Ensure factors have consistent levels between training and test sets
+factor_columns <- sapply(HipKneeTrain_Qual, is.factor)
+
+HipKneeTest_Qual <- HipKneeTest_Qual %>%
+  mutate(across(where(is.factor), ~ factor(.x, levels = levels(HipKneeTrain_Qual[[cur_column()]]))))
+
 # Separate predictors and response variable in the training set
-x_train_qual <- as.matrix(HipKneeTrain_Qual %>% select(-c(State, FacilityName, PredictedReadmissionRate_HIP_KNEE)))
-y_train_qual <- HipKneeTrain_Qual$PredictedReadmissionRate_HIP_KNEE
+x_train_qual <- HipKneeTrain_Qual %>% select(-c(State, FacilityName, FacilityId, PredictedReadmissionRate_HIP_KNEE, TargetCategory))
+y_train_qual <- HipKneeTrain_Qual$TargetCategory
+
+# Ensure the response variable is a factor
+y_train_qual <- as.factor(y_train_qual)
 
 # Separate predictors and response variable in the test set
-x_test_qual <- as.matrix(HipKneeTest_Qual %>% select(-c(State, FacilityName, PredictedReadmissionRate_HIP_KNEE)))
-y_test_qual <- HipKneeTest_Qual$PredictedReadmissionRate_HIP_KNEE
+x_test_qual <- HipKneeTest_Qual %>% select(-c(State, FacilityName, FacilityId, PredictedReadmissionRate_HIP_KNEE, TargetCategory))
+y_test_qual <- HipKneeTest_Qual$TargetCategory
 
-# Define the grid of hyperparameters
-searchGrid <- expand.grid(.alpha = seq(0, 1, length.out = 10), 
-                          .lambda = seq(0, 5, length.out = 15))
+# Ensure the response variable is a factor
+y_test_qual <- as.factor(y_test_qual)
 
-# Define the train control
+# Define the train control for logistic regression
 ctrl <- trainControl(method = "repeatedcv", 
                      number = 10, 
                      repeats = 5, 
-                     search = "grid", 
                      verboseIter = FALSE)
 
-# Set up cross-validation
-elasticnet_model_qual <- train(
+# Set up cross-validation for logistic regression
+logistic_model_qual <- train(
   x = x_train_qual,
   y = y_train_qual,
-  method = "glmnet",
+  method = "glm",
   trControl = ctrl,
-  tuneGrid = searchGrid
+  family = "binomial"
 )
 
-# Best hyperparameters
-best_alpha_qual <- elasticnet_model_qual$bestTune$alpha
-best_lambda_qual <- elasticnet_model_qual$bestTune$lambda
-
-# Print best alpha and lambda
-print(paste("Best Alpha: ", best_alpha_qual))
-print(paste("Best Lambda: ", best_lambda_qual))
+# Print the model summary
+best_model <- logistic_model_qual$finalModel
+summary(best_model)
 ```
 
 ### Assessing performance
 ```{r}
-# Make predictions on the test set
-predictions_qual <- predict(elasticnet_model_qual, newdata = x_test_qual)
+# Predict class labels on the test set based on a threshold 
+predicted_labels <- ifelse(predictions > 0.5, 1, 0) 
 
-# Calculate RMSE
-rmse_qual <- sqrt(mean((predictions_qual - y_test_qual)^2))
+# Convert predicted labels to factors with the same levels as y_test_qual
+predicted_labels <- factor(predicted_labels, levels = levels(y_test_qual))
 
-# Print RMSE
-print(paste("RMSE on Test Set: ", rmse_qual))
+# Calculate accuracy
+accuracy <- mean(predicted_labels == y_test_qual)
+print(paste("Accuracy: ", accuracy))
 
-# Calculate performance metrics on the test set
-performance_qual <- postResample(pred = predictions_qual, obs = y_test_qual)
+# Create a confusion matrix
+conf_matrix <- caret::confusionMatrix(predicted_labels, y_test_qual)
+print(conf_matrix)
 
-# Extract and print R-squared
-r_squared_qual <- performance_qual["Rsquared"]
-print(paste("R^2 on Test Set: ", r_squared_qual))
+# ROC and AUC
+roc_curve <- roc(y_test_qual, predictions)
+auc <- auc(roc_curve)
+print(paste("AUC: ", auc))
 
-# Get the feature importance
-important_qual <- varImp(elasticnet_model_qual)$importance
+# Plot ROC curve
+plot(roc_curve, main = "ROC Curve for Logistic Regression", col = "blue")
 
-# View the feature importance
-important_qual %>% 
-  mutate(Feature = rownames(important_qual)) %>% 
+# Extract the coefficients from the best model
+coefficients <- coef(logistic_model_qual$finalModel, s = best_lambda_qual)
+
+# Convert coefficients to a dataframe
+coefficients_df <- as.data.frame(as.matrix(coefficients))
+coefficients_df$Feature <- rownames(coefficients_df)
+coefficients_df <- coefficients_df %>% 
   mutate(Feature = gsub("\\.", " ", Feature)) %>% 
-  arrange(desc(Overall)) %>% 
-  ggplot(aes(y = Overall, fill = Overall, x = fct_reorder(Feature, Overall))) +
+  rename(Importance = V1) %>%
+  arrange(desc(abs(Importance))) %>%
+  filter(Feature != "(Intercept)")  # Remove the intercept term if present
+
+# Plot feature importance
+ggplot(coefficients_df, aes(y = Importance, fill = Importance, x = fct_reorder(Feature, Importance))) +
   geom_col() + 
   scale_fill_continuous(low = "lightblue", high = "darkblue") +
   coord_flip() +
   theme_minimal() +
-  labs(title = "Feature importance as determined by Elastic Net",
+  labs(title = "Feature Importance as Determined by Logistic Regression",
        x = "",
-       y = "Importance", 
-       fill = "")
+       y = "Coefficient Value", 
+       fill = "Coefficient")
 ```
 
 ## SVM (AC)
@@ -2684,17 +2709,24 @@ svm_final_qual <- svm(y_train_qual ~ .,
 
 ### Assessing performance
 ```{r}
-# Make predictions on the test set
-predictions_qual <- predict(svm_final_qual, x_test_qual, type = "response")
+# Predict on the test set
+pred_test_svm_tuned <- predict(svm_final_qual, x_test_qual, probability = TRUE)
 
-# Calculate RMSE
-rmse_qual <- sqrt(mean((predictions_qual - y_test_qual)^2))
-cat("RMSE on Test Set:", rmse_qual, "\n")
+# Create the confusion matrix
+confMat_tuned <- caret::confusionMatrix(pred_test_svm_tuned, y_test_qual)
+print(confMat_tuned)
 
-# Calculate R-squared
-rss_qual <- sum((y_test_qual - predictions_qual)^2)
-tss_qual <- sum((y_test_qual - mean(y_test_qual))^2)
-r_squared_qual <- 1 - (rss_qual / tss_qual)
-cat("R-squared on Test Set:", r_squared_qual, "\n")
+# Extract decision values for ROC curve
+decision_values <- attributes(predict(svm_final_qual, x_test_qual, decision.values = TRUE))$decision.values
+pred <- prediction(decision_values, y_test_qual)
+roc_curve <- performance(pred, "tpr", "fpr")
+
+# Plot ROC curve
+plot(roc_curve, main = "ROC Curve for Tuned SVM", col = "blue")
+
+# Calculate AUC
+pred_prob <- attr(predict(svm_final_qual, x_test_qual, probability = TRUE), "probabilities")[, c(0, 1)]
+auc_value <- roc(y_test_qual, pred_prob)$auc
+print(paste("AUC:", auc_value))
 ```
 
