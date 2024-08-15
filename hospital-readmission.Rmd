@@ -101,8 +101,9 @@ A potential pitfall of our analysis plan is data quality and completeness. The d
 ## Data loading and preprocessing  
 
 ### Loading the Data (AC)  
+Note: Data must be saved to personal computer and the filepath must be specified for each user due to the size of the files. The data can be accessed [here](https://data.cms.gov/provider-data/topics/hospitals). Click "download all datasets". 
 ```{r, message=FALSE, warning=FALSE}
-# Set the directory for the data files
+# Set the directory for the data files - must be saved to personal computer (too large for GitHub). Can be accessed here: https://data.cms.gov/provider-data/topics/hospitals
 filepath <- "/Users/adelinecasali/Desktop/hospitals_current_data/" 
 
 # List the files in the directory that have "Hospital.csv"
@@ -1175,12 +1176,34 @@ ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
   labs(title = "Figure 5. Correlation Heatmap of Numeric Variables")
 ```
 
+#### Scaling and Normalizing
+```{r}
+# Exclude non-numeric columns
+non_numeric_columns <- c("State", "FacilityName", "FacilityId", "StateCode")
+numeric_columns <- setdiff(names(HipKneeTrain), non_numeric_columns)
+
+# Scale and normalize the numeric columns
+HipKneeTrain_scaled <- as.data.frame(scale(HipKneeTrain[, numeric_columns]))
+
+# Combine the scaled data with the non-numeric data
+HipKneeTrain <- cbind(HipKneeTrain_scaled, HipKneeTrain[, non_numeric_columns])
+
+# Print the first few rows of the scaled and normalized dataset
+head(HipKneeTrain)
+```
+
+#### Saving the dataset for future ease of use
+```{r}
+save(HipKneeTrain, file = "HipKneeTrain.RData")
+```
+
 ## Preprocessing the test dataset (AC)
 We are utilizing the most recent snapshot from 04/24/2024 as our test set. Utilizing this brand new data will help to ensure that our model is generalizable and useful for future analyses. 
 
 ### Loading the Data 
+Note: Data must be saved to personal computer and the filepath must be specified for each user due to the size of the files. The data can be accessed [here](https://data.cms.gov/provider-data/archived-data/hospitals). Download the snapshot from 4/24/2024. 
 ```{r, message=FALSE, warning=FALSE}
-# Set the directory for the data files
+# Set the directory for the data files - must be saved to personal computer (too large for GitHub). Can be accessed here: https://data.cms.gov/provider-data/archived-data/hospitals
 filepath <- "/Users/adelinecasali/Desktop/hospitals_04_2024/" 
 
 # List the files in the directory that have "Hospital.csv"
@@ -1889,6 +1912,22 @@ HipKneeTest <- HipKneeTest[, !(names(HipKneeTest) %in% c("Score_MORT_30_AMI",
 
 ```
 
+#### Scaling and Normalizing
+```{r}
+# Exclude non-numeric columns
+non_numeric_columns <- c("State", "FacilityName", "FacilityId", "StateCode")
+numeric_columns <- setdiff(names(HipKneeTest), non_numeric_columns)
+
+# Scale and normalize the numeric columns
+HipKneeTest_scaled <- as.data.frame(scale(HipKneeTest[, numeric_columns]))
+
+# Combine the scaled data with the non-numeric data
+HipKneeTest <- cbind(HipKneeTest_scaled, HipKneeTest[, non_numeric_columns])
+
+# Print the first few rows of the scaled and normalized dataset
+head(HipKneeTest)
+```
+
 #### Reassess heatmap with engineered mortality data
 ```{r, fig.width=14, fig.height=15}
 # Compute correlation matrix
@@ -2420,7 +2459,7 @@ HipKneeTest_Qual <- HipKneeTest %>%
 ```{r}
 # Remove unwanted columns from the dataset
 HipKneeTrain_QualRF <- HipKneeTrain_Qual %>%
-  select(-State, -FacilityName, -FacilityId, -PredictedReadmissionRate_HIP_KNEE)
+  select(-State, -StateCode, -FacilityName, -FacilityId, -PredictedReadmissionRate_HIP_KNEE)
 
 # Define mtry parameter grid
 grid <- expand.grid(
@@ -2472,9 +2511,9 @@ print(sorted_by_importance_qual)
 
 ### Assessing the performance
 ```{r}
-# Remove columns from the test set to match train set
+# Remove columns from the test set to match train set - removed StateCode to reduce overfitting and improve interpretability
 HipKneeTest_QualRF <- HipKneeTest_Qual %>%
-  select(-State, -FacilityName, -FacilityId, -PredictedReadmissionRate_HIP_KNEE)
+  select(-State, -StateCode, -FacilityName, -FacilityId, -PredictedReadmissionRate_HIP_KNEE)
 
 # Ensure the target variable is a factor
 HipKneeTest_QualRF$TargetCategory <- as.factor(HipKneeTest_QualRF$TargetCategory)
@@ -2495,7 +2534,7 @@ print(conf_matrix_rf_qual)
 # Predict on the test set
 pred_rf_qual <- predict(rf_grid_search_qual, newdata = HipKneeTest_QualRF, type = "prob")
 
-# Extract the predicted probabilities for the positive class (assuming "1" is the positive class)
+# Extract the predicted probabilities for the positive class
 pred_prob_pos <- pred_rf_qual[, "1"]
 
 # Generate predictions object for ROCR
@@ -2520,15 +2559,15 @@ factor_columns <- sapply(HipKneeTrain_Qual, is.factor)
 HipKneeTest_Qual <- HipKneeTest_Qual %>%
   mutate(across(where(is.factor), ~ factor(.x, levels = levels(HipKneeTrain_Qual[[cur_column()]]))))
 
-# Separate predictors and response variable in the training set
-x_train_qual <- HipKneeTrain_Qual %>% select(-c(State, FacilityName, FacilityId, PredictedReadmissionRate_HIP_KNEE, TargetCategory))
+# Separate predictors and response variable in the training set - removed StateCode to reduce overfitting and improve interpretability
+x_train_qual <- HipKneeTrain_Qual %>% select(-c(State, StateCode, FacilityName, FacilityId, PredictedReadmissionRate_HIP_KNEE, TargetCategory))
 y_train_qual <- HipKneeTrain_Qual$TargetCategory
 
 # Ensure the response variable is a factor
 y_train_qual <- as.factor(y_train_qual)
 
 # Separate predictors and response variable in the test set
-x_test_qual <- HipKneeTest_Qual %>% select(-c(State, FacilityName, FacilityId, PredictedReadmissionRate_HIP_KNEE, TargetCategory))
+x_test_qual <- HipKneeTest_Qual %>% select(-c(State, StateCode, FacilityName, FacilityId, PredictedReadmissionRate_HIP_KNEE, TargetCategory))
 y_test_qual <- HipKneeTest_Qual$TargetCategory
 
 # Ensure the response variable is a factor
@@ -2709,24 +2748,25 @@ svm_final_qual <- svm(y_train_qual ~ .,
 
 ### Assessing performance
 ```{r}
-# Predict on the test set
+# Predict on the test set with probability = TRUE
 pred_test_svm_tuned <- predict(svm_final_qual, x_test_qual, probability = TRUE)
 
 # Create the confusion matrix
 confMat_tuned <- caret::confusionMatrix(pred_test_svm_tuned, y_test_qual)
 print(confMat_tuned)
 
-# Extract decision values for ROC curve
-decision_values <- attributes(predict(svm_final_qual, x_test_qual, decision.values = TRUE))$decision.values
-pred <- prediction(decision_values, y_test_qual)
+# Extract predicted probabilities for the positive class
+pred_prob <- attr(pred_test_svm_tuned, "probabilities")[,2]
+
+# Calculate the ROC curve using the predicted probabilities
+pred <- prediction(pred_prob, y_test_qual)
 roc_curve <- performance(pred, "tpr", "fpr")
 
 # Plot ROC curve
 plot(roc_curve, main = "ROC Curve for Tuned SVM", col = "blue")
 
 # Calculate AUC
-pred_prob <- attr(predict(svm_final_qual, x_test_qual, probability = TRUE), "probabilities")[, c(0, 1)]
-auc_value <- roc(y_test_qual, pred_prob)$auc
+auc_value <- performance(pred, "auc")@y.values[[1]]
 print(paste("AUC:", auc_value))
 ```
 
