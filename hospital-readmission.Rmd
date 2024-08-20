@@ -104,7 +104,7 @@ A potential pitfall of our analysis plan is data quality and completeness. The d
 Note: Data must be saved to personal computer and the filepath must be specified for each user due to the size of the files. The data can be accessed [here](https://data.cms.gov/provider-data/topics/hospitals). Click "download all datasets". 
 ```{r, message=FALSE, warning=FALSE}
 # Set the directory for the data files - must be saved to personal computer (too large for GitHub). Can be accessed here: https://data.cms.gov/provider-data/topics/hospitals
-filepath <- "/Users/adelinecasali/Desktop/hospitals_current_data/" 
+filepath <- "/Users/seugley/Desktop/hospitals_04_2024/" 
 
 # List the files in the directory that have "Hospital.csv"
 files <- list.files(path = filepath, pattern = "Hospital.csv")
@@ -1213,7 +1213,7 @@ We are utilizing the most recent snapshot from 04/24/2024 as our test set. Utili
 Note: Data must be saved to personal computer and the filepath must be specified for each user due to the size of the files. The data can be accessed [here](https://data.cms.gov/provider-data/archived-data/hospitals). Download the snapshot from 4/24/2024. 
 ```{r, message=FALSE, warning=FALSE}
 # Set the directory for the data files - must be saved to personal computer (too large for GitHub). Can be accessed here: https://data.cms.gov/provider-data/archived-data/hospitals
-filepath <- "/Users/adelinecasali/Desktop/hospitals_04_2024/" 
+filepath <- "/Users/seugley/Desktop/hospitals_04_2024/" 
 
 # List the files in the directory that have "Hospital.csv"
 files <- list.files(path = filepath, pattern = "Hospital.csv")
@@ -2470,7 +2470,7 @@ HipKneeTest_Qual <- HipKneeTest %>%
   mutate(TargetCategory = ifelse(PredictedReadmissionRate_HIP_KNEE > median_value, 1, 0))
 ```
 
-## Random Forest (AC)
+## Random Forest (SE)
 
 ### Create the model
 ```{r}
@@ -2478,65 +2478,94 @@ HipKneeTest_Qual <- HipKneeTest %>%
 HipKneeTrain_QualRF <- HipKneeTrain_Qual %>%
   select(-State, -StateCode, -FacilityName, -FacilityId, -PredictedReadmissionRate_HIP_KNEE)
 
-# Define mtry parameter grid
-grid <- expand.grid(
-  mtry = c(2, 4, 6, 8)
-)
-
-# Define CV
+# Repeated CV
 train_control <- trainControl(
-  method = "cv",         
-  number = 7,           
-  verboseIter = TRUE     
+  method = "repeatedcv",   
+  number = 7,              
+  repeats = 3,             
+  verboseIter = TRUE       
 )
 
 # Ensure the target variable is a factor
 HipKneeTrain_QualRF$TargetCategory <- as.factor(HipKneeTrain_QualRF$TargetCategory)
 
-# Train the Random Forest model with grid search
-rf_grid_search_qual <- train(
+# Optimize mtry with a fixed ntree value
+grid_mtry <- expand.grid(
+  mtry = c(2, 4, 6, 8)
+)
+
+# Train the Random Forest model with grid search for mtry
+rf_grid_search_mtry <- train(
   TargetCategory ~ .,   
   data = HipKneeTrain_QualRF,                    
   method = "rf",                          
   trControl = train_control,              
-  tuneGrid = grid,                       
+  tuneGrid = grid_mtry,                       
   importance = TRUE,                     
-  ntree = 10                         
+  ntree = 10
 )
 
-# Best parameters
-best_params_qual <- rf_grid_search_qual$bestTune
-print(best_params_qual)
+# Print best mtry parameters
+best_mtry <- rf_grid_search_mtry$bestTune
+print("Best mtry parameters:")
+print(best_mtry)
+
+# Optimize ntree using the best mtry
+grid_ntree <- c(5, 10, 12)
+
+# Define the grid for mtry with the best mtry value
+best_mtry_grid <- expand.grid(mtry = best_mtry$mtry)
+
+# Train the Random Forest model with grid search for ntree
+rf_results <- lapply(grid_ntree, function(ntree_val) {
+  train(
+    TargetCategory ~ .,   
+    data = HipKneeTrain_QualRF,                    
+    method = "rf",                          
+    trControl = train_control,              
+    tuneGrid = best_mtry_grid,
+    importance = TRUE,                     
+    ntree = ntree_val                         
+  )
+})
+
+# Find the best ntree based on performance metrics
+best_ntree_index <- which.max(sapply(rf_results, function(model) max(model$results$Accuracy)))
+best_rf_model_qual <- rf_results[[best_ntree_index]]
+best_ntree <- grid_ntree[best_ntree_index]
+
+# Print the best ntree value
+print("Best ntree:")
+print(best_ntree)
 
 # Extract feature importances
-best_rf_model_qual <- rf_grid_search_qual$finalModel
-feature_importances_qual <- importance(best_rf_model_qual)
+feature_importances_qual <- importance(best_rf_model_qual$finalModel)
 
-# Convert feature importances to a df
+# Convert feature importances to a dataframe
 feature_importances_df_qual <- as.data.frame(feature_importances_qual)
 feature_importances_df_qual$Feature <- rownames(feature_importances_df_qual)
 
 # Rename columns for clarity
 colnames(feature_importances_df_qual) <- c("MeanDecreaseAccuracy", "MeanDecreaseGini", "Feature")
 
-# Sort by MeanDecreaseGini
+# Sort by MeanDecreaseAccuracy
 sorted_by_importance_qual <- feature_importances_df_qual[order(-feature_importances_df_qual$MeanDecreaseAccuracy), ]
 
-# Print the sorted table
+# Print feature importances
+print("Feature importances:")
 print(sorted_by_importance_qual)
 ```
-
 ### Assessing the performance
 ```{r}
-# Remove columns from the test set to match train set - removed StateCode to reduce overfitting and improve interpretability
+# Remove columns from the test set to match train set
 HipKneeTest_QualRF <- HipKneeTest_Qual %>%
   select(-State, -StateCode, -FacilityName, -FacilityId, -PredictedReadmissionRate_HIP_KNEE)
 
 # Ensure the target variable is a factor
 HipKneeTest_QualRF$TargetCategory <- as.factor(HipKneeTest_QualRF$TargetCategory)
 
-# Predict on the test set
-pred_rf_qual <- predict(rf_grid_search_qual, newdata = HipKneeTest_QualRF)
+# Predict on the test set using the best model
+pred_rf_qual <- predict(best_rf_model_qual, newdata = HipKneeTest_QualRF)
 
 # Calculate accuracy
 accuracy_rf_qual <- mean(pred_rf_qual == HipKneeTest_QualRF$TargetCategory)
@@ -2548,11 +2577,11 @@ conf_matrix_rf_qual <- confusionMatrix(pred_rf_qual, HipKneeTest_QualRF$TargetCa
 # Print the confusion matrix
 print(conf_matrix_rf_qual)
 
-# Predict on the test set
-pred_rf_qual <- predict(rf_grid_search_qual, newdata = HipKneeTest_QualRF, type = "prob")
+# Predict on the test set for probability scores
+pred_prob_rf_qual <- predict(best_rf_model_qual, newdata = HipKneeTest_QualRF, type = "prob")
 
 # Extract the predicted probabilities for the positive class
-pred_prob_pos <- pred_rf_qual[, "1"]
+pred_prob_pos <- pred_prob_rf_qual[, "1"]
 
 # Generate predictions object for ROCR
 pred <- prediction(pred_prob_pos, HipKneeTest_QualRF$TargetCategory)
@@ -2790,15 +2819,8 @@ print(paste("AUC:", auc_value))
 ## Neural Network (SE)
 
 ```{r}
-# Load tensorflow (loaded here due to package conflictions)
+# Load tensorflow (loaded here due to package conflicts)
 pacman::p_load(tensorflow)
-
-# Calculate readmission rate national median
-national_median <- median(HipKneeTrain_Qual$PredictedReadmissionRate_HIP_KNEE)
-
-# Create a copy of the HipKneeTest_Qual and add PreferredStatus column to copied df
-HipKneeTest_Qual_nn <- HipKneeTest_Qual %>%
-  mutate(PreferredStatus = ifelse(PredictedReadmissionRate_HIP_KNEE > national_median, "Preferred", "Non-Preferred"))
 
 # Make sure all variables are numeric
 HipKneeTrain_Qual <- HipKneeTrain_Qual %>%
@@ -2811,40 +2833,39 @@ HipKneeTest_Qual <- HipKneeTest_Qual %>%
 
 # Prepare features and target
 x_train <- HipKneeTrain_Qual %>%
-  # Remove unwanted columns from train data
-  select(-State, -FacilityName, -TargetCategory, -FacilityId, -PredictedReadmissionRate_HIP_KNEE) %>%
+  select(-State, -FacilityName, -StateCode, -FacilityId, -PredictedReadmissionRate_HIP_KNEE, -TargetCategory) %>%
   as.matrix()
 
-y_train <- ifelse(HipKneeTrain_Qual$PredictedReadmissionRate_HIP_KNEE > national_median, 1, 0)
+y_train <- keras::to_categorical(HipKneeTrain_Qual$TargetCategory, num_classes = 2)
 
 x_test <- HipKneeTest_Qual %>%
-  # Remove unwanted columns from test data
-  select(-State, -FacilityName, -FacilityId, -TargetCategory, -PredictedReadmissionRate_HIP_KNEE) %>%
+  select(-State, -StateCode, -FacilityName, -FacilityId, -PredictedReadmissionRate_HIP_KNEE, -TargetCategory) %>%
   as.matrix()
 
-y_test <- ifelse(HipKneeTest_Qual$PredictedReadmissionRate_HIP_KNEE > national_median, 1, 0)
-
-# Convert target variable back to categorical
-y_train <- keras::to_categorical(y_train, num_classes = 2)
-y_test <- keras::to_categorical(y_test, num_classes = 2)
+y_test <- keras::to_categorical(HipKneeTest_Qual$TargetCategory, num_classes = 2)
 
 # Define function to create and compile model
 create_model <- function(units1 = 64, units2 = 32, dropout_rate = 0.5, learning_rate = 0.001) {
-  model <- keras_model_sequential() %>%
+  keras_model_sequential() %>%
     layer_dense(units = units1, activation = 'relu', input_shape = dim(x_train)[2]) %>%
     layer_dropout(rate = dropout_rate) %>%
     layer_dense(units = units2, activation = 'relu') %>%
     layer_dropout(rate = dropout_rate) %>%
-    layer_dense(units = 2, activation = 'softmax')
-  
-  model %>% compile(
-    loss = 'categorical_crossentropy',
-    optimizer = optimizer_adam(learning_rate = learning_rate),
-    metrics = c('accuracy')
-  )
-  
-  return(model)
+    layer_dense(units = units2, activation = 'relu') %>%
+    layer_dense(units = 2, activation = 'softmax') %>%
+    compile(
+      loss = 'categorical_crossentropy',
+      optimizer = optimizer_adam(learning_rate = learning_rate),
+      metrics = c('accuracy')
+    )
 }
+
+# Define early stopping callback (to avoid redundancy)
+early_stopping <- callback_early_stopping(
+  monitor = 'val_loss',
+  patience = 10, 
+  restore_best_weights = TRUE
+)
 
 # Define function to train and evaluate model
 evaluate_model <- function(params) {
@@ -2857,10 +2878,11 @@ evaluate_model <- function(params) {
   
   history <- model %>% fit(
     x_train, y_train,
-    epochs = 20,
+    epochs = 50,
     batch_size = 32,
     validation_split = 0.2,
-    verbose = 0
+    verbose = 0,
+    callbacks = list(early_stopping)
   )
   
   accuracy <- max(history$metrics$val_accuracy)
@@ -2870,10 +2892,10 @@ evaluate_model <- function(params) {
 
 # Define grid of hyperparameters
 grid <- expand.grid(
-  units1 = c(32, 64, 128),
-  units2 = c(16, 32, 64),
-  dropout_rate = c(0.3, 0.5, 0.7),
-  learning_rate = c(0.001, 0.01, 0.1)
+  units1 = c(64, 128),
+  units2 = c(32, 64),
+  dropout_rate = c(0.5),
+  learning_rate = c(0.001, 0.01)
 )
 
 # Perform Grid Search
@@ -2898,15 +2920,19 @@ best_model <- create_model(
 
 history <- best_model %>% fit(
   x_train, y_train,
-  epochs = 20,
-  batch_size = 32,
+  epochs = 50,
+  batch_size = 64,
   validation_split = 0.2,
-  verbose = 2
+  verbose = 1,
+  callbacks = list(early_stopping)
 )
 
 # Make predictions on test set
 predictions <- best_model %>% predict(x_test)
 predicted_classes <- max.col(predictions) - 1
+
+# Initialize HipKneeTest_Qual_nn as a copy of HipKneeTest_Qual
+HipKneeTest_Qual_nn <- HipKneeTest_Qual
 
 # Add predictions to HipKneeTest_Qual_nn PredictedStatus column
 HipKneeTest_Qual_nn$PredictedStatus <- ifelse(predicted_classes == 1, "Preferred", "Non-Preferred")
@@ -2921,7 +2947,7 @@ print("NN Confusion Matrix:")
 print(confusion_matrix)
 
 # Print updated df with preferred/non-preferred predictions
-print("Dataframe with NN Predictions:")
+print("df with nn predictions:")
 print(head(HipKneeTest_Qual_nn))
 ```
 
