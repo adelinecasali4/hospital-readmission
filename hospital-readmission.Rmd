@@ -2520,7 +2520,7 @@ feature_importances_df_qual$Feature <- rownames(feature_importances_df_qual)
 colnames(feature_importances_df_qual) <- c("MeanDecreaseAccuracy", "MeanDecreaseGini", "Feature")
 
 # Sort by MeanDecreaseGini
-sorted_by_importance_qual <- feature_importances_df_qual[order(-feature_importances_df_qual$MeanDecreaseGini), ]
+sorted_by_importance_qual <- feature_importances_df_qual[order(-feature_importances_df_qual$MeanDecreaseAccuracy), ]
 
 # Print the sorted table
 print(sorted_by_importance_qual)
