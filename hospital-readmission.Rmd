@@ -1158,6 +1158,22 @@ HipKneeTrain <- HipKneeTrain[, !(names(HipKneeTrain) %in% c("Score_MORT_30_AMI",
 
 ```
 
+#### Scaling and Normalizing
+```{r}
+# Exclude non-numeric columns
+non_numeric_columns <- c("State", "FacilityName", "FacilityId", "StateCode")
+numeric_columns <- setdiff(names(HipKneeTrain), non_numeric_columns)
+
+# Scale and normalize the numeric columns
+HipKneeTrain_scaled <- as.data.frame(scale(HipKneeTrain[, numeric_columns]))
+
+# Combine the scaled data with the non-numeric data
+HipKneeTrain <- cbind(HipKneeTrain_scaled, HipKneeTrain[, non_numeric_columns])
+
+# Print the first few rows of the scaled and normalized dataset
+head(HipKneeTrain)
+```
+
 #### Reassess heatmap with engineered mortality data
 ```{r, fig.width=14, fig.height=15}
 # Compute correlation matrix
@@ -1176,20 +1192,13 @@ ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
   labs(title = "Figure 5. Correlation Heatmap of Numeric Variables")
 ```
 
-#### Scaling and Normalizing
+
+#### Removing columns correlated with the target variable
+Score_COMP_HIP_KNEE and Payment_PAYM_90_HIP_KNEE are highly correlated with the target variable, so they will be removed. 
 ```{r}
-# Exclude non-numeric columns
-non_numeric_columns <- c("State", "FacilityName", "FacilityId", "StateCode")
-numeric_columns <- setdiff(names(HipKneeTrain), non_numeric_columns)
-
-# Scale and normalize the numeric columns
-HipKneeTrain_scaled <- as.data.frame(scale(HipKneeTrain[, numeric_columns]))
-
-# Combine the scaled data with the non-numeric data
-HipKneeTrain <- cbind(HipKneeTrain_scaled, HipKneeTrain[, non_numeric_columns])
-
-# Print the first few rows of the scaled and normalized dataset
-head(HipKneeTrain)
+# Removing correlated columns
+HipKneeTrain <- HipKneeTrain %>%
+  select(-Score_COMP_HIP_KNEE, -Payment_PAYM_90_HIP_KNEE)
 ```
 
 #### Saving the dataset for future ease of use
@@ -1946,6 +1955,14 @@ ggplot(cor_melted, aes(x = Var1, y = Var2, fill = value)) +
   labs(title = "Figure 5. Correlation Heatmap of Numeric Variables")
 ```
 
+#### Removing columns correlated with the target variable
+Score_COMP_HIP_KNEE and Payment_PAYM_90_HIP_KNEE are highly correlated with the target variable, so they will be removed. 
+```{r}
+# Removing correlated columns
+HipKneeTest <- HipKneeTest %>%
+  select(-Score_COMP_HIP_KNEE, -Payment_PAYM_90_HIP_KNEE)
+```
+
 #### Save the data for future ease of use
 ```{r}
 save(HipKneeTest, file = "HipKneeTest.RData")
@@ -2023,7 +2040,7 @@ cluster_summary <- HipKneeTrain_K_Means %>%
 print(cluster_summary)
 
 # Visualize feature distributions across clusters
-features_to_plot <- c("PredictedReadmissionRate_HIP_KNEE", "HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE", "Score_COMP_HIP_KNEE", "SAFE_USE_OF_OPIOIDS")
+features_to_plot <- c("PredictedReadmissionRate_HIP_KNEE", "HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE", "SAFE_USE_OF_OPIOIDS")
 
 for (feature in features_to_plot) {
   p <- ggplot(HipKneeTrain_K_Means, aes(x = Cluster, y = .data[[feature]], fill = Cluster)) +
@@ -2100,7 +2117,7 @@ hc_cluster_summary <- HipKneeTrain_HC %>%
 print(hc_cluster_summary)
 
 # Visualize feature distributions across clusters
-features_to_plot <- c("PredictedReadmissionRate_HIP_KNEE", "HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE", "Score_COMP_HIP_KNEE", "SAFE_USE_OF_OPIOIDS")
+features_to_plot <- c("PredictedReadmissionRate_HIP_KNEE", "HcahpsLinearMeanValue_H_HSP_RATING_LINEAR_SCORE", "SAFE_USE_OF_OPIOIDS")
 
 for (feature in features_to_plot) {
   p <- ggplot(HipKneeTrain_HC, aes_string(x = "HC_Cluster", y = feature, fill = "HC_Cluster")) +
@@ -2484,7 +2501,7 @@ rf_grid_search_qual <- train(
   trControl = train_control,              
   tuneGrid = grid,                       
   importance = TRUE,                     
-  ntree = 100                         
+  ntree = 10                         
 )
 
 # Best parameters
