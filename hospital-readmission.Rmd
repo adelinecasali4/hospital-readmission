@@ -104,7 +104,7 @@ A potential pitfall of our analysis plan is data quality and completeness. The d
 Note: Data must be saved to personal computer and the filepath must be specified for each user due to the size of the files. The data can be accessed [here](https://data.cms.gov/provider-data/topics/hospitals). Click "download all datasets". 
 ```{r, message=FALSE, warning=FALSE}
 # Set the directory for the data files - must be saved to personal computer (too large for GitHub). Can be accessed here: https://data.cms.gov/provider-data/topics/hospitals
-filepath <- "/Users/seugley/Desktop/hospitals_04_2024/" 
+filepath <- "/Users/adelinecasali/Desktop/hospitals_current_data/" 
 
 # List the files in the directory that have "Hospital.csv"
 files <- list.files(path = filepath, pattern = "Hospital.csv")
@@ -1213,7 +1213,7 @@ We are utilizing the most recent snapshot from 04/24/2024 as our test set. Utili
 Note: Data must be saved to personal computer and the filepath must be specified for each user due to the size of the files. The data can be accessed [here](https://data.cms.gov/provider-data/archived-data/hospitals). Download the snapshot from 4/24/2024. 
 ```{r, message=FALSE, warning=FALSE}
 # Set the directory for the data files - must be saved to personal computer (too large for GitHub). Can be accessed here: https://data.cms.gov/provider-data/archived-data/hospitals
-filepath <- "/Users/seugley/Desktop/hospitals_04_2024/" 
+filepath <- "/Users/adelinecasali/Desktop/hospitals_04_2024/" 
 
 # List the files in the directory that have "Hospital.csv"
 files <- list.files(path = filepath, pattern = "Hospital.csv")
@@ -1973,18 +1973,19 @@ save(HipKneeTest, file = "HipKneeTest.RData")
 # Create a summary table of descriptive statistics
 descr_stats <- describe(HipKneeTrain)
 # Remove the rows with Facility ID, State and State code, and facility name
-descr_stats <- descr_stats %>% filter(vars != c(1, 23, 24, 26))
+descr_stats <- descr_stats %>% filter(vars != c("FacilityId", "State", "StateCode", "FacilityName"))
 # Remove columns 1, 2, 5, and 6
 descr_stats <- descr_stats[, -c(1, 2, 5, 6)]
 
 # Create a table with kable
-kable(descr_stats, format = "html", caption = "Descriptive Statistics for All Numeric Variables in Final Dataset") %>%
+desc_stats_table <- kable(descr_stats, format = "html", caption = "Table 2. Descriptive Statistics for All Numeric Variables in Final Dataset") %>%
   kable_styling(
     bootstrap_options = c("hover", "striped", "responsive")
   ) %>%
   column_spec(1, bold = TRUE) %>%
   column_spec(2, width = "5em") %>%
   row_spec(0, bold = TRUE, background = "#f2f2f2")
+desc_stats_table
 
 # Select numeric columns
 numeric_columns <- HipKneeTrain %>% select_if(is.numeric)
@@ -1997,7 +1998,7 @@ ggplot(numeric_melted, aes(x = value)) +
   geom_histogram(bins = 30, fill = "blue", color = "black") +
   facet_wrap(~variable, scales = "free_x") +
   theme_minimal() +
-  labs(title = "Histograms of Numeric Variables", x = "Value", y = "Frequency")
+  labs(title = "Figure 3. Histograms of Numeric Variables", x = "Value", y = "Frequency")
 ```
 
 
