@@ -1,7 +1,7 @@
 # Identifying Risk Factors and Preferred Hospitals for Hip/Knee Replacements: An Analysis of 2019-2022 Hospital Readmission Reduction Program Data  
 
 ## Project Overview  
-Since 2012, the Centers for Medicare and Medicaid Services (CMS) have implemented the Hospital Readmission Reduction Program (HRRP) to track and reduce unnecessary hospital readmissions through financial penalties. This project aims to analyze the 2024 HRRP data to identify preferred and non-preferred hospitals for hip and knee replacements for a health insurance company, as well as to determine the risk factors associated with higher readmission rates for these procedures.  
+Since 2012, the Centers for Medicare and Medicaid Services (CMS) have implemented the Hospital Readmission Reduction Program (HRRP) to track and reduce unnecessary hospital readmissions through financial penalties. This project aims to analyze 2019-2022 HRRP data to identify preferred and non-preferred hospitals for hip and knee replacements for a health insurance company, as well as to determine the risk factors associated with higher readmission rates for these procedures.  
 
 ## Background and Question
 Since 2012, the Centers for Medicare and Medicaid Services have implemented the Hospital Readmission Reduction Program (HRRP). This program tracks hospital readmission rates and incentivizes hospitals to reduce unnecessary readmissions through financial penalties. Using the 2019-2022 readmission data from the HRRP, this analysis aims to identify the preferred and non-preferred hospitals for hip and knee replacements for a health insurance company. Furthermore, it will examine the risk factors associated with higher readmission rates for these procedures.  
