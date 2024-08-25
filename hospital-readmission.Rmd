@@ -2471,7 +2471,7 @@ HipKneeTest_Qual <- HipKneeTest %>%
   mutate(TargetCategory = ifelse(PredictedReadmissionRate_HIP_KNEE > median_value, 1, 0))
 ```
 
-## Random Forest (SE)
+## Random Forest (AC/SE)
 
 ### Create the model
 ```{r}
@@ -2555,6 +2555,40 @@ sorted_by_importance_qual <- feature_importances_df_qual[order(-feature_importan
 # Print feature importances
 print("Feature importances:")
 print(sorted_by_importance_qual)
+
+# Graph top 10 feature importances 
+top10_features <- data.frame(
+  Feature = c(
+    "Score_PSI_15", "Score_PSI_14", "Score_PSI_10", 
+    "H_HSP_RATING_LINEAR_SCORE", 
+    "SAFE_USE_OF_OPIOIDS", "EDV", "Score_PSI_11", 
+    "Score_PSI_12", "OP_29", "HCP_COVID_19"
+  ),
+  MeanDecreaseAccuracy = c(
+    3.85, 3.00, 2.38, 2.20, 2.12, 2.07, 
+    2.04, 2.02, 1.51, 1.10
+  )
+)
+
+# View the dataset
+print(top10_features)
+
+# Plot
+ggplot(top10_features, aes(x = reorder(Feature, MeanDecreaseAccuracy), y = MeanDecreaseAccuracy, fill = MeanDecreaseAccuracy)) +
+  geom_bar(stat = "identity", color = "black") +
+  coord_flip() +
+  theme_minimal() +
+  scale_fill_gradientn(colors = c("lightblue", "blue", "darkblue")) +
+  labs(
+    title = "Figure 12. Top 10 Important Features from Random Forest",
+    x = "Feature",
+    y = "Mean Decrease in Accuracy"
+  ) +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    axis.text = element_text(size = 10),
+    axis.title = element_text(size = 10)
+  )
 ```
 ### Assessing the performance
 ```{r}
@@ -2589,7 +2623,7 @@ pred <- prediction(pred_prob_pos, HipKneeTest_QualRF$TargetCategory)
 
 # Calculate and plot ROC curve
 roc_curve <- performance(pred, "tpr", "fpr")
-plot(roc_curve, main = "ROC Curve for Random Forest Model", col = "blue")
+plot(roc_curve, main = "Figure 11. ROC Curve for Random Forest Model", col = "blue")
 
 # Calculate AUC
 auc <- performance(pred, "auc")@y.values[[1]]
